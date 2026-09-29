@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LogIn, Settings, LogOut, FileText } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth, TIER_STYLE } from '../contexts/AuthContext';
 import { LoginModal } from './LoginModal';
 import clsx from 'clsx';
 
@@ -59,20 +59,36 @@ export function LoginButton({ onOpenAccessibility, onOpenProvenance, size = 'def
         </div>
         <div className="hidden md:flex flex-col items-start min-w-0">
           <span className="text-xs font-medium leading-tight truncate max-w-[120px]">{user?.name}</span>
-          <span className="text-[10px] text-text-tertiary leading-tight whitespace-nowrap">{user?.role}</span>
+          {!user?.tier && <span className="text-[10px] text-text-tertiary leading-tight whitespace-nowrap">{user?.role}</span>}
         </div>
+        {user?.tier && (
+          <span
+            className={clsx('hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold uppercase tracking-wide whitespace-nowrap', TIER_STYLE[user.tier].chip)}
+            title={user.zone}
+          >
+            <span className={clsx('w-1.5 h-1.5 rounded-full', TIER_STYLE[user.tier].dot)} aria-hidden="true" />
+            {TIER_STYLE[user.tier].label}
+          </span>
+        )}
       </button>
 
       {/* Dropdown Menu */}
       {dropdownOpen && (
         <div
-          className="absolute top-full right-0 mt-2 w-56 bg-surface rounded-lg border border-border-default shadow-panel py-1 z-50"
+          className="absolute top-full right-0 mt-2 w-72 bg-surface rounded-lg border border-border-default shadow-panel py-1 z-50"
           role="menu"
         >
           {/* User Info Header */}
           <div className="px-3 py-2 border-b border-border-default">
             <p className="text-xs font-medium text-text-primary">{user?.name}</p>
             <p className="text-[11px] text-text-secondary">{user?.email}</p>
+            {user?.tier && (
+              <div className="mt-1.5 space-y-0.5">
+                <p className="text-[10px] text-text-tertiary">Zone: <span className="text-text-secondary">{user.zone}</span></p>
+                <p className="text-[10px] text-text-tertiary">Signed in with: <span className="text-text-secondary">{user.factors?.map(f => f === 'totp' ? 'authenticator' : f === 'hardware_key' ? 'security key' : f).join(' + ')}</span></p>
+                <p className="text-[10px] text-text-tertiary">Response rule: <span className="text-text-secondary">{user.responseLabel}</span></p>
+              </div>
+            )}
           </div>
 
           {/* Menu Items */}

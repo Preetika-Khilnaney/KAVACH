@@ -65,17 +65,16 @@ export function ProvenanceDrawer({ isOpen, onClose, provenance }: ProvenanceDraw
                     Core World Model: NetJEPA
                   </span>
                   <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-surface border border-border-default text-accent-indigo font-medium">
-                    v{provenance?.version || '0.4.2-alpha'}
+                    {provenance?.version || 'loading…'}
                   </span>
                 </div>
                 <p className="text-xs text-text-secondary leading-relaxed">
-                  A self-supervised Joint-Embedding Predictive Architecture operating over network flow embeddings
-                  and packet timing distributions to forecast future attack trajectories.
+                  {provenance?.architecture ?? 'A self-supervised Joint-Embedding Predictive Architecture over network flow windows.'}
                 </p>
                 <div className="flex items-center gap-4 pt-1 text-[11px] text-text-tertiary font-mono">
                   <span className="flex items-center gap-1">
                     <Calendar size={12} />
-                    Trained: {provenance?.lastTrained ? new Date(provenance.lastTrained).toLocaleDateString() : 'Aug 2026'}
+                    Trained: {provenance?.lastTrained ? new Date(provenance.lastTrained).toLocaleDateString() : 'untrained'}
                   </span>
                   <span className="flex items-center gap-1">
                     <Award size={12} />
@@ -83,6 +82,25 @@ export function ProvenanceDrawer({ isOpen, onClose, provenance }: ProvenanceDraw
                   </span>
                 </div>
               </div>
+
+              {/* Cryptographic identity + held-out metrics (GET /provenance) */}
+              {provenance?.sha256 && (
+                <div className="bg-canvas rounded-lg p-4 border border-border-default space-y-1.5 text-[11px] font-mono">
+                  <div className="text-xs font-heading font-semibold text-text-primary mb-1">Model identity (chained on the ledger)</div>
+                  <div className="break-all"><span className="text-text-tertiary">sha256 </span>{provenance.sha256}</div>
+                  <div><span className="text-text-tertiary">parameters </span>{provenance.numParameters?.toLocaleString()} · <span className="text-text-tertiary">size </span>{((provenance.sizeBytes ?? 0) / 1e6).toFixed(2)} MB</div>
+                  <div><span className="text-text-tertiary">ledger block </span>#{provenance.ledgerBlock ?? '—'} · <span className="text-text-tertiary">calibration T </span>{provenance.temperature?.toFixed(3) ?? '—'} · <span className="text-text-tertiary">threshold </span>{provenance.decisionThreshold?.toFixed(2) ?? '—'}</div>
+                  {provenance.trainingManifestHash && <div className="break-all"><span className="text-text-tertiary">training data manifest </span>{provenance.trainingManifestHash.slice(0, 32)}…</div>}
+                  {provenance.validationMetrics?.netjepa && (
+                    <div className="pt-1">
+                      <span className="text-text-tertiary">held-out </span>
+                      F1 {provenance.validationMetrics.netjepa.f1?.toFixed(2)} · FPR {provenance.validationMetrics.netjepa.fpr?.toFixed(3)} · AUC {provenance.validationMetrics.netjepa.auc?.toFixed(2)}
+                      {provenance.validationMetrics.baseline && <> · baseline F1 {provenance.validationMetrics.baseline.f1?.toFixed(2)}</>}
+                    </div>
+                  )}
+                  <div className={provenance.headsValidated ? 'text-risk-green' : 'text-risk-amber'}>{provenance.headsValidated ? 'Scoring heads validated against the baseline' : 'Scoring heads NOT validated -- heuristic scoring in use'}</div>
+                </div>
+              )}
 
               {/* Training Datasets */}
               <div className="space-y-3">

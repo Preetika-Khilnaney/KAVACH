@@ -1,4 +1,7 @@
-# Kavach backend — starter scaffold
+# Kavach backend
+
+> **Sept 2026 enhancement pass:** retrained and calibrated scoring heads (F1 0.72 vs baseline 0.55, FPR 0.9%), a hash-chained forensic ledger with smart contracts and an AI audit of analyst feedback, deep explainability (SAE, causal tracing, tuned lens, probes, concept bottleneck), attack-chain reconstruction with remediation, and a four-layer validation benchmark. See **[ENHANCEMENTS.md](ENHANCEMENTS.md)** for what changed, run order and honest limitations.
+
 
 Backend skeleton for the NetJEPA world-model pipeline (SIH 2026, problem statement 26153).
 Matches the architecture from the technical approach slide: ingestion -> feature extraction ->
@@ -129,13 +132,244 @@ CTU-13 capture if you want a *real* botnet C2 pcap to demo — the "Bot" label a
 only, so there's no packet capture with genuine C2 beaconing to point the packet-level path at.
 That's an enhancement, not a gap in the current build.
 
-## Setup
+### Other datasets (auto-detected by `src/ingestion/flow_parser.detect_format`)
+
+| Format | How it's recognised | Notes |
+|---|---|---|
+| CIC-IDS-2017 MachineLearningCVE | `Destination Port`, no IPs | synthetic 1 s timestamps, anchored to the matching PCAP if present |
+| CIC-IDS-2017 full (with IPs) | `Flow ID` / `Source IP` | real timestamps |
+| CSE-CIC-IDS-2018 | `Dst Port`, `Tot Fwd Pkts`, `TotLen Fwd Pkts`, `*_Flag_Cnt` | labels such as `DoS attacks-Hulk`, `Infilteration`, `Brute Force -Web` map onto the MITRE stages |
+| CTU-13 (`.binetflow`) | `StartTime,Dur,Proto,SrcAddr,...,Label` | Argus `State` letters become a TCP-flag bitmask; `flow=From-Botnet*` → `Botnet` (C2), everything else BENIGN |
+
+Drop any of these into `data/raw/CSV/...` (or upload them) and run `python -m src.training.build_windows_cache`.
+
+### Joint flow + packet windows from raw PCAP
+
+`python -m src.training.build_pcap_windows data/raw/PCAP/Wednesday-workingHours.pcap` reads the capture with a
+dependency-free struct parser (`src/ingestion/fastpcap.py`, ~10x faster than scapy), builds 5-second windows that
+carry *both* flow-level features (IPFIX-style flows cut at the window boundary) and packet-level features, and labels
+them from the published CIC-IDS-2017 attack timeline (`src/training/attack_timeline.py`). These windows are part of
+the v2 training set, so the model is trained on both levels of the network hierarchy.
+
+## Setup (step by step)
+
+These instructions take a fresh macOS or Linux machine from clone to a working dashboard. Windows
+can use the same commands through WSL; native activation and path commands are noted where they differ.
+
+### 1. Install system prerequisites
+
+| Tool | Recommended version | Used for |
+|---|---|---|
+| Python | 3.14 | API, ingestion, model, training, tests |
+| Node.js and npm | Node 22+ (the project is developed on Node 24) | React/Vite frontend |
+| Git and Git LFS | current versions | source code and CIC-IDS-2017 CSVs |
+| `tshark` | current version | optional PyShark packet inspection |
+
+On macOS with Homebrew:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+brew install python@3.14 node git git-lfs wireshark
+git lfs install
 ```
+
+On Ubuntu/Debian, install Python, Node, Git, and Git LFS with the system package manager. Install
+`tshark` if you use the PyShark path; the fast PCAP training command uses the bundled parser and
+does not require Wireshark.
+
+Verify the tools before cloning:
+
+```bash
+python3 --version
+node --version
+npm --version
+git --version
+git lfs version
+```
+
+### 2. Clone the repository and fetch data
+
+```bash
+git lfs install
+git clone <repo-url> kavach-backend
+cd kavach-backend
+git lfs pull
+```
+
+The CIC-IDS-2017 flow CSVs are stored with Git LFS. Confirm that they are actual CSV files rather
+than small LFS pointer files:
+
+```bash
+find data/raw/CSV/MachineLearningCVE -maxdepth 1 -type f -exec ls -lh {} \\\;
+```
+
+Place any large PCAP files manually in `data/raw/PCAP/`; they are intentionally not committed.
+The expected captures and their purpose are documented in [Datasets](#datasets).
+
+### 3. Create and verify the Python environment
+
+Run these commands from the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+python -c "import fastapi, numpy, pandas, torch; print('Python dependencies OK')"
+```
+
+On Windows PowerShell, activate with `.venv\\Scripts\\Activate.ps1`. Keep the virtual environment
+active in every terminal running backend commands. `torch` and `torch-geometric` are the largest
+downloads. If `torch-geometric` cannot be installed, the model uses the plain-MLP fallback in
+`src/models/netjepa.py`; a graph-encoder checkpoint may then be incompatible.
+
+### 4. Install and verify the frontend
+
+```bash
+cd frontend
+npm install
+npm run build
+npm run lint
+cd ..
+```
+
+Run `npm install` again after pulling changes to `frontend/package.json` or
+`frontend/package-lock.json`. The frontend has no required `.env` file: in development it connects
+to `http://localhost:8000` and `ws://localhost:8000`.
+
+### 5. Choose or create model weights
+
+Weights are git-ignored. Without `data/processed/netjepa_weights.pt`, the API still starts, but
+responses report `trained: false` and inference uses the untrained/rule-based fallback.
+
+**Use an existing checkpoint:** copy a compatible file to:
+
+```text
+data/processed/netjepa_weights.pt
+```
+
+The model registry hot-reloads a newer checkpoint while the API is running. Verify its metadata:
+
+```bash
+python -m src.cli info
+```
+
+**Train locally:** first build row-count windows from the CSV data:
+
+```bash
+python -m src.training.build_windows_cache
+```
+
+For joint flow and packet training, add PCAPs to `data/raw/PCAP/` and build packet windows:
+
+```bash
+python -m src.training.build_pcap_windows data/raw/PCAP/Monday-WorkingHours.pcap
+python -m src.training.build_pcap_windows data/raw/PCAP/Wednesday-workingHours.pcap
+```
+
+Train with all available sources, or CSV data only:
+
+```bash
+python -m src.training.train_v2
+python -m src.training.train_v2 --sources csv
+```
+
+The checkpoint is written to `data/processed/netjepa_weights.pt`. Training metrics are written to
+`data/processed/training_metrics.jsonl`; inspect them before treating predictions as production-quality.
+
+### 6. Start and verify the backend
+
+From the repository root, with `.venv` active:
+
+```bash
+uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Leave this terminal running. In another terminal, check the health response and API documentation:
+
+```bash
+curl http://localhost:8000/health
+open http://localhost:8000/docs       # macOS; use a browser on Linux/Windows
+```
+
+The expected health response has `"status": "ok"`. Port 8000 is the frontend’s default backend
+target; change both sides together if you must use another port.
+
+### 7. Start the frontend
+
+In a second terminal, from the repository root:
+
+```bash
+cd frontend
+npm run dev
+```
+
+Open http://localhost:5173. For a production-like local preview, build first and then run
+`npm run preview` from `frontend`.
+
+### 8. Sign in and process a capture
+
+1. Select **Sign in** and use one of the demo accounts listed in
+  [Classification-tiered access](#classification-tiered-access). All demo accounts use the
+  password `kavach2026`.
+2. Open **Ingest** and upload a flow CSV or PCAP. The backend returns a job ID, processes the file
+  in the background, and streams progress through the dashboard.
+3. Open **Operations**, **Flows**, **Forensics**, or **Benchmark** after processing completes.
+4. For a direct API check, upload a file with `POST /ingest/upload`, poll
+  `GET /jobs/{job_id}/progress`, and connect to
+  `ws://localhost:8000/ws/pipeline?capture_path=<path>` for stage events.
+
+The first backend start creates local authentication state under `data/auth/`. It is git-ignored;
+do not commit generated passwords, TOTP secrets, or hardware-key files.
+
+### 9. Run verification checks
+
+Run backend tests from the repository root and frontend checks from `frontend`:
+
+```bash
+source .venv/bin/activate
+pytest
+cd frontend
+npm run build
+npm run lint
+```
+
+For a quick offline smoke test without the web UI:
+
+```bash
+cd ..
+python -m src.cli info
+python -m src.cli predict data/raw/CSV/MachineLearningCVE/<file>.csv --limit 10
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `python` or `pip` uses the wrong interpreter | activate `.venv`, then use `python -m pip ...` and `python -m pytest` |
+| CSV upload fails or produces no windows | run `git lfs install && git lfs pull`; verify the files are not LFS pointers |
+| `trained` is `false` | add `data/processed/netjepa_weights.pt` or complete the training steps above |
+| `torch-geometric` installation fails | reinstall the PyTorch-compatible build, or continue with the documented plain-MLP fallback |
+| PyShark cannot find a capture backend | install Wireshark/tshark; use `build_pcap_windows` for the bundled fast parser |
+| Browser says `Backend unreachable` | start Uvicorn on port 8000 and check `curl http://localhost:8000/health` |
+| Vite reports `Failed to resolve import` | run `cd frontend && npm install`, then restart Vite |
+| Port 8000 or 5173 is busy | inspect with `lsof -nP -iTCP:8000 -sTCP:LISTEN` or `lsof -nP -iTCP:5173 -sTCP:LISTEN`; stop the old process or update the frontend API target |
+
+## Command line (offline)
+
+Everything runs without the web UI or any network access:
+
+```bash
+python -m src.cli info                                    # loaded checkpoint, schema, threshold, ledger status
+python -m src.cli predict capture.pcap --limit 20         # per-window risk, stage, t+1..t+K forecast band, top features
+python -m src.cli predict flows.csv --json > out.json     # machine-readable
+python -m src.cli predict capture.pcap --store            # also write to results.db + chain to the ledger
+python -m src.cli benchmark [--refresh]                   # full evaluation report
+python -m src.cli train --epochs 12                       # = python -m src.training.train_v2
+python -m src.cli build-pcap-windows capture.pcap
+python -m src.cli verify-chain
+```
+
+The frontend bundles its fonts (`@fontsource/*`), so the UI also works on an air-gapped network.
 
 ## Run the API
 
@@ -149,6 +383,40 @@ events for every stage off that file, window by window. Connect to `/ws/pipeline
 param to get the placeholder demo stream instead. Check each event's `payload.trained` from
 state_representation onward — `false` until `python -m src.training.train` has produced
 `data/processed/netjepa_weights.pt`.
+
+## Classification-tiered access
+
+Each KAVACH node guards one classification tier. Login strength and the authority to act on an
+alert scale with it (`src/auth/tiered.py`, standard library only, fully offline):
+
+| Tier | Zone | Sign-in factors | Response rule |
+|---|---|---|---|
+| Routine (low) | office · admin | password | approved playbook actions auto-execute |
+| Sensitive (moderate) | finance · HR · procurement | password + authenticator code (TOTP, RFC 6238) | analyst confirms each action |
+| Mission-critical (high) | classified · defence · grid control | password + TOTP + hardware security key | two-person approval, or escalate |
+
+- Passwords are PBKDF2-SHA256 hashed; 5 failures lock the account for 5 minutes.
+- The hardware key is a challenge/response: the node issues a nonce and the key answers with
+  HMAC-SHA256(secret, nonce), computed in the browser, so the secret never crosses the wire. In the
+  prototype the key is a `.kavachkey` file standing in for a FIDO2/PKI token.
+- Every login, failure, lockout and logout is chained as an `ACCESS` block; every response action is
+  chained as a `REMEDIATION` block with its tier, mode and approvers.
+- Mission-critical actions wait in the two-person queue on the Operations page until a *different*
+  cleared officer approves, rejects or escalates them.
+
+Demo users (password `kavach2026`), created with fresh secrets in `data/auth/` on first start
+(git-ignored):
+
+| User | Tier |
+|---|---|
+| `l1.analyst` | Routine |
+| `l2.responder` | Sensitive |
+| `officer.a`, `officer.b` | Mission-critical (keys: `data/auth/keys/officer.*.kavachkey`) |
+
+The login dialog has a "demo authenticator" link that shows the current TOTP code (prototype only;
+disable with `KAVACH_DEMO_AUTH=0`). From the terminal: `python -m src.cli auth totp l2.responder`.
+Endpoints: `/auth/policy`, `/auth/login`, `/auth/verify`, `/auth/me`, `/auth/logout`,
+`/approvals/pending`, `/approvals/{id}`.
 
 ## Suggested build order
 

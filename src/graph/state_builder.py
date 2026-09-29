@@ -1,13 +1,6 @@
 """Build G_t = (V_t, E_t) graph snapshots from ONE feature window, as
 produced by src.features.extract.build_feature_windows / iter_feature_windows.
 
-What's actually available to build a graph from (read this before expecting
-a rich host graph on every window):
-
-- Every window always gets a "network" node: the window's own aggregate
-  feature vector. This is what feeds the model when nothing richer is
-  available (see NetJEPA's PyG-less fallback in src/models/netjepa.py,
-  which reduces to exactly this).
 - "host" nodes are only added when the window carries real per-record IPs
   -- that's `packet_edges` from extract.py (real observed (src_ip, dst_ip)
   pairs), which only exists for PCAP-derived windows. MachineLearningCVE
@@ -46,9 +39,26 @@ EDGE_TYPES = (
 # different columns present, and the model needs the same input width
 # every time (its Linear layers are sized once, at construction). Missing
 # fields are filled with 0.0 -- see _numeric_feature_vector.
-CANONICAL_FEATURE_NAMES = (
-    # flow-level (src.features.extract._window_flow_records)
-    "flow_count",
+# v1 schema (the original 23 features; kept so legacy checkpoints can be
+# identified -- they are not servable by the v2 model code).
+CANONICAL_FEATURE_NAMES_V1 = (
+    "flow_count", "flow_src_ip_nunique", "flow_dst_ip_nunique", "flow_dst_port_nunique", "flow_tcp_flags_union",
+    "flow_bytes_sum", "flow_bytes_mean", "flow_packets_sum", "flow_duration_mean", "flow_iat_mean_mean",
+    "flow_iat_var_mean", "flow_iat_max_max", "packet_count", "packet_ttl_mean", "packet_ttl_variance",
+    "packet_tcp_window_mean", "packet_fragment_rate", "packet_payload_size_mean", "packet_payload_size_std",
+    "packet_retransmit_count", "packet_port_scan_flagged", "packet_src_ip_nunique", "packet_dst_ip_nunique",
+)
+
+# v2 schema: every numeric field src.features.extract / joint_windows can
+# produce, in a fixed order, covering BOTH traffic levels plus two modality
+# flags telling the model which levels this window actually carries (a
+# flow-CSV window has no packet level; a PCAP window has both). Missing
+# fields are 0.0 -- see _numeric_feature_vector.
+#
+# Deliberately NOT flow_attack_ratio: labels are derived from it (see
+# src/training/labels.py); as an input it would leak the answer.
+FLOW_LEVEL_FEATURES = (
+    "flow_count",                 # log1p-scaled (raw count differs by source)
     "flow_src_ip_nunique",
     "flow_dst_ip_nunique",
     "flow_dst_port_nunique",
@@ -60,18 +70,13 @@ CANONICAL_FEATURE_NAMES = (
     "flow_iat_mean_mean",
     "flow_iat_var_mean",
     "flow_iat_max_max",
-    # Deliberately NOT flow_attack_ratio: src.training.labels.infiltration_label
-    # is computed directly from it (label = attack_ratio > 0), so including
-    # it here would let a classifier "predict" the label by reading it
-    # straight off an input feature instead of learning anything about
-    # actual traffic behavior. Confirmed this was happening in practice —
-    # see src/benchmark/evaluate.py's docstring / the benchmark run that
-    # caught it (baseline logistic regression scored a suspicious 0.996 F1).
-    # flow_attack_ratio still exists on the window dict itself and is still
-    # exactly what labels should be derived from — it just doesn't belong
-    # in the model's own input vector too.
-    # packet-level (src.features.extract._window_packet_records)
-    "packet_count",
+    "flow_bwd_fwd_byte_ratio",    # bidirectional flow ratios
+    "flow_bwd_fwd_packet_ratio",
+    "flow_tcp_fraction",          # protocol mix (when the source has protocol)
+    "flow_udp_fraction",
+)
+PACKET_LEVEL_FEATURES = (
+    "packet_count",               # log1p-scaled
     "packet_ttl_mean",
     "packet_ttl_variance",
     "packet_tcp_window_mean",
@@ -83,6 +88,10 @@ CANONICAL_FEATURE_NAMES = (
     "packet_src_ip_nunique",
     "packet_dst_ip_nunique",
 )
+MODALITY_FEATURES = ("has_flow_level", "has_packet_level")
+CANONICAL_FEATURE_NAMES = FLOW_LEVEL_FEATURES + PACKET_LEVEL_FEATURES + MODALITY_FEATURES
+FEATURE_SCHEMA_VERSION = 2
+_LOG_SCALED = {"flow_count", "packet_count"}
 
 
 def _numeric_feature_vector(window: dict) -> tuple[list[str], list[float]]:
@@ -95,14 +104,23 @@ def _numeric_feature_vector(window: dict) -> tuple[list[str], list[float]]:
         val = window.get(key)
         if val is None:
             values.append(0.0)
-        elif isinstance(val, bool):
+        elif isinstance(val, (bool, np.bool_)):
             values.append(float(val))
-        elif isinstance(val, (int, float)):
+        elif isinstance(val, (int, float, np.integer, np.floating)):
             v = float(val)
-            values.append(0.0 if np.isnan(v) else v)
+            v = 0.0 if np.isnan(v) else v
+            if key in _LOG_SCALED:
+                v = float(np.log1p(max(v, 0.0)))
+            values.append(v)
         else:
             values.append(0.0)
-    return list(CANONICAL_FEATURE_NAMES), values
+    # modality flags: infer when an older window dict doesn't carry them
+    names = list(CANONICAL_FEATURE_NAMES)
+    if window.get("has_flow_level") is None:
+        values[names.index("has_flow_level")] = 1.0 if (window.get("flow_count") or 0) > 0 else 0.0
+    if window.get("has_packet_level") is None:
+        values[names.index("has_packet_level")] = 1.0 if (window.get("packet_count") or 0) > 0 else 0.0
+    return names, values
 
 
 def build_graph_state(window: dict) -> dict:

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, Network, Cpu, Activity, ShieldAlert, FileText, CheckCircle2, CornerDownRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, Network, Cpu, Activity, ShieldAlert, FileText, CheckCircle2, Link2, UserCheck } from 'lucide-react';
 import type { AuditTrail, AuditStep, AuditStageName } from '../api/types';
 import { FeatureHeatmapCell } from './FeatureHeatmapCell';
 import clsx from 'clsx';
@@ -17,6 +17,8 @@ const STAGE_ICONS: Record<AuditStageName, React.ComponentType<{ className?: stri
   'Forecast': Activity,
   'Attack Stage Mapping': ShieldAlert,
   'Alert': CheckCircle2,
+  'Blockchain': Link2,
+  'Analyst Action': UserCheck,
 };
 
 export function DecisionAuditTrail({ trail, className }: DecisionAuditTrailProps) {
@@ -117,28 +119,44 @@ export function DecisionAuditTrail({ trail, className }: DecisionAuditTrailProps
   );
 }
 
+function KV({ k, v, accent }: { k: string; v: React.ReactNode; accent?: boolean }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <span className="text-text-secondary">{k}</span>
+      <span className={clsx('font-mono font-semibold text-right break-all', accent && 'text-accent-indigo')}>{v}</span>
+    </div>
+  );
+}
+
+const pct = (v: unknown) => (typeof v === 'number' ? `${(v * 100).toFixed(0)}%` : '—');
+const str = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
+
 function renderStepDetail(step: AuditStep) {
+  const d = step.detail as Record<string, any>;
+  const box = 'bg-surface p-2.5 rounded border border-border-default text-xs space-y-1.5';
   switch (step.stageName) {
     case 'Raw Flow':
       return (
-        <div className="grid grid-cols-2 gap-2 text-xs font-mono bg-surface p-2.5 rounded border border-border-default">
-          <div><span className="text-text-tertiary">Source:</span> {String(step.detail.srcIP)}:{String(step.detail.srcPort)}</div>
-          <div><span className="text-text-tertiary">Destination:</span> {String(step.detail.dstIP)}:{String(step.detail.dstPort)}</div>
-          <div><span className="text-text-tertiary">Protocol:</span> {String(step.detail.protocol)}</div>
-          <div><span className="text-text-tertiary">Flags:</span> {String(step.detail.flags)}</div>
-          <div><span className="text-text-tertiary">Bytes:</span> {Number(step.detail.bytes).toLocaleString()}</div>
-          <div><span className="text-text-tertiary">Duration:</span> {String(step.detail.duration)}s</div>
+        <div className={box}>
+          <KV k="Source capture" v={str(d.sourceFile)} />
+          <KV k="Flow records" v={str(d.flowCount)} />
+          <KV k="Packets" v={str(d.packetCount)} />
+          <KV k="Window" v={`${str(d.windowStart)} → ${str(d.windowEnd)}`} />
+          {d.groundTruthLabel && <KV k="Dataset label (ground truth)" v={str(d.groundTruthLabel)} accent />}
         </div>
       );
 
     case 'Feature Extraction': {
-      const topFeatures = (step.detail.topFeatures as Array<{ name: string; value: number; contribution: number }>) || [];
+      const entries = Object.entries((d.window as Record<string, number>) || {}).filter(([k]) => k.startsWith('flow_') || k.startsWith('packet_')).slice(0, 12);
       return (
         <div className="space-y-2">
-          <p className="text-[10px] text-text-tertiary font-mono uppercase tracking-wider">Top Computed Features</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-            {topFeatures.map((f, i) => (
-              <FeatureHeatmapCell key={i} name={f.name} value={f.value} contribution={f.contribution} />
+          <p className="text-[10px] text-text-tertiary font-mono uppercase tracking-wider">Window features (z-scored)</p>
+          <div className="grid grid-cols-2 gap-1 text-[11px] font-mono">
+            {entries.map(([k, v]) => (
+              <div key={k} className="flex justify-between bg-surface px-2 py-1 rounded border border-border-default">
+                <span className="text-text-tertiary truncate mr-2">{k}</span>
+                <span>{Number(v).toFixed(2)}</span>
+              </div>
             ))}
           </div>
         </div>
@@ -147,69 +165,81 @@ function renderStepDetail(step: AuditStep) {
 
     case 'Graph State':
       return (
-        <div className="bg-surface p-2.5 rounded border border-border-default text-xs space-y-1.5">
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Source Degree (active links):</span>
-            <span className="font-mono font-semibold">{String(step.detail.srcNodeDegree)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Destination Degree:</span>
-            <span className="font-mono font-semibold">{String(step.detail.dstNodeDegree)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">Cluster Coefficient:</span>
-            <span className="font-mono font-semibold">{String(step.detail.clusterCoefficient)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-text-secondary">External Destination:</span>
-            <span className="font-mono font-semibold text-accent-indigo">{step.detail.isExternalDst ? 'Yes' : 'No'}</span>
-          </div>
+        <div className={box}>
+          <KV k="Nodes" v={str(d.nodes)} />
+          <KV k="Edges (host-to-host flows)" v={`${str(d.edges)} (${str(d.hostFlows)})`} />
+          <KV k="Hosts" v={((d.hosts as string[]) || []).slice(0, 6).join(', ') || 'none (flow CSV windows carry no IPs)'} />
         </div>
       );
 
-    case 'Forecast':
+    case 'Forecast': {
+      const curve = (d.forecastCurve as number[]) || [];
+      const stages = (d.predictedStages as { step: number; stage: string; probability: number }[]) || [];
       return (
-        <div className="bg-surface p-3 rounded border border-border-default text-xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Trajectory Horizon:</span>
-            <span className="font-mono font-semibold">K={String(step.detail.kSteps)} steps</span>
+        <div className={box}>
+          <KV k="Latent dimension" v={str(d.embeddingDim)} />
+          <KV k="Rollout" v={curve.length ? curve.map(c => `${Math.round(c * 100)}`).join(' → ') : '—'} accent />
+          {stages.length > 0 && <KV k="Predicted stages" v={stages.map(s => `t+${s.step}: ${s.stage}`).join(', ')} />}
+          <KV k="Model" v={d.modelSha256 ? `sha256:${String(d.modelSha256).slice(0, 16)}…` : '—'} />
+        </div>
+      );
+    }
+
+    case 'Attack Stage Mapping': {
+      const top = (d.topFeatures as Array<{ name: string; value: number; contribution: number }>) || [];
+      const maxAbs = Math.max(1e-9, ...top.map(t => Math.abs(t.contribution)));
+      return (
+        <div className="space-y-2">
+          <div className={box}>
+            <KV k="Stage" v={str(d.attackStage)} accent />
+            <KV k="Infiltration probability" v={pct(d.infiltrationProbability)} />
+            {d.rawProbability !== undefined && d.calibratedProbability !== null && <KV k="Raw model output → calibrated" v={`${pct(d.rawProbability)} → ${pct(d.calibratedProbability)}`} />}
+            <KV k="Stage confidence" v={pct(d.confidence)} />
+            <KV k="Scoring method" v={str(d.scoringMethod)} />
+            <KV k="Attribution" v={str(d.attributionMethod)} />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Risk Projection:</span>
-            <div className="flex items-center gap-1 font-mono">
-              <span className="text-text-primary">{String(step.detail.currentRisk)}</span>
-              <CornerDownRight className="w-3 h-3 text-risk-red inline" />
-              <span className="text-risk-red font-bold">{String(step.detail.projectedRisk)}</span>
+          {top.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {top.map((f, i) => (
+                <FeatureHeatmapCell key={i} name={f.name} value={f.contribution} contribution={Math.abs(f.contribution) / maxAbs} />
+              ))}
             </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-text-secondary">Branch Confidence:</span>
-            <span className="font-mono font-semibold text-accent-indigo">
-              {(Number(step.detail.pathProbability) * 100).toFixed(0)}%
-            </span>
-          </div>
+          )}
         </div>
       );
-
-    case 'Attack Stage Mapping':
-      return (
-        <div className="bg-surface p-2.5 rounded border border-border-default text-xs space-y-1.5">
-          <div className="flex justify-between items-center">
-            <span className="text-text-secondary">MITRE ATT&CK Tactic:</span>
-            <span className="font-heading font-semibold text-risk-red">{String(step.detail.mappedStage)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-text-secondary">Mapping Confidence:</span>
-            <span className="font-mono font-semibold">{(Number(step.detail.confidence) * 100).toFixed(0)}%</span>
-          </div>
-        </div>
-      );
+    }
 
     case 'Alert':
       return (
-        <div className="bg-surface p-2.5 rounded border border-border-default text-xs space-y-1">
-          <div className="text-text-secondary font-medium">Alert Dispatched:</div>
-          <div className="font-mono text-text-primary font-semibold">{String(step.detail.title || 'Security Anomaly Alert')}</div>
+        <div className={box}>
+          <KV k="Alert block" v={d.alertBlock !== null && d.alertBlock !== undefined ? `#${d.alertBlock}` : 'not chained'} accent />
+          {d.alertHash && <KV k="Block hash" v={`${String(d.alertHash).slice(0, 24)}…`} />}
+        </div>
+      );
+
+    case 'Blockchain': {
+      const blocks = (d.blocks as Array<{ index: number; type: string; hash: string; prevHash: string }>) || [];
+      return (
+        <div className="space-y-1.5">
+          <KV k="Chain tier" v={str(d.chainTier)} />
+          {blocks.map(b => (
+            <div key={b.index} className="bg-surface px-2 py-1.5 rounded border border-border-default font-mono text-[10px] flex items-center gap-2">
+              <span className="text-accent-indigo font-semibold">#{b.index}</span>
+              <span className="text-text-secondary">{b.type}</span>
+              <span className="text-text-tertiary truncate">{b.hash.slice(0, 20)}… ← {b.prevHash.slice(0, 10)}…</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    case 'Analyst Action':
+      return (
+        <div className={box}>
+          <KV k="Analyst" v={str(d.analyst_id)} />
+          <KV k="Verdict" v={str(d.verdict)} accent />
+          <KV k="Justification" v={str(d.note)} />
+          <KV k="Ledger block" v={d.block_index !== null && d.block_index !== undefined ? `#${d.block_index}` : '—'} />
         </div>
       );
 

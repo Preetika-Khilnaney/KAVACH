@@ -5,13 +5,14 @@ const TABS = [
   { path: 'pipeline', label: 'Pipeline Stages' },
   { path: 'network', label: 'Live Network Graph' },
   { path: 'forecast', label: 'Forecast Rollout Tree' },
+  { path: 'attention', label: 'Attention Heatmap' },
 ] as const;
 
-/** Sub-nav for the three Model Internals pages. Preserves `capturePath`
+/** Sub-nav for the four Model Internals pages. Preserves `capturePath`
  * across tabs -- without this, switching tabs silently drops back to the
  * placeholder demo stream instead of staying on whatever real capture the
  * user is watching (see frontend/src/api/websocket.ts). */
-export function InternalsSubNav({ active }: { active: 'pipeline' | 'network' | 'forecast' }) {
+export function InternalsSubNav({ active }: { active: 'pipeline' | 'network' | 'forecast' | 'attention' }) {
   const [searchParams] = useSearchParams();
   const capturePath = searchParams.get('capturePath');
   const suffix = capturePath ? `?capturePath=${encodeURIComponent(capturePath)}` : '';
@@ -32,9 +33,6 @@ export function InternalsSubNav({ active }: { active: 'pipeline' | 'network' | '
           {tab.label}
         </a>
       ))}
-      <span className="px-2 py-0.5 rounded bg-canvas border border-border-default text-text-tertiary text-[10px] ml-2">
-        Attention Heatmap (Coming Next)
-      </span>
     </div>
   );
 }

@@ -1,0 +1,68 @@
+KAVACH: A PREDICTIVE NETJEPA AND BLOCKCHAIN SHIELD GUARDING INDIA'S CRITICAL NETWORKS
+Executive Summary · SIH 2026 · Problem Statement SIH26153 · NTRO
+
+OPENING STATEMENT
+
+With cyber incidents in India rising 85% in two years, breaches costing ₹25.5 crore on average and attackers now moving through a network in under 30 minutes, KAVACH gives the nation's critical networks the ability to see attacks coming, explain every alert, and act before damage is done, using indigenous AI that runs entirely offline.
+
+PROBLEM CONTEXT
+
+India's digital growth has made its networks a prime target. CERT-In handled 15.92 lakh cyber security incidents in 2023, 20.41 lakh in 2024 and 29.44 lakh in 2025, roughly 8,000 every day. According to IBM's Cost of a Data Breach Report 2026, the average breach now costs an Indian organisation ₹25.5 crore, a 15.9% rise in a single year.
+
+The greater danger is speed. The CrowdStrike 2026 Global Threat Report found that attackers move from their first foothold to other systems in an average of 29 minutes. Yet Indian organisations without automated defences take an average of 236 days just to detect a breach. Today's security tools largely react after the fact, judge each piece of traffic in isolation, and offer little explanation for their alerts. They also overwhelm analysts: in our own tests, a conventional detector wrongly flagged 29% of normal traffic as attacks, burying real threats in noise.
+
+The risk is most acute in Critical Information Infrastructure: power, banking, telecom, transport, government and strategic enterprises, the six sectors protected by NCIIPC under Section 70A of the IT Act, 2000. Many of these networks are air-gapped and cannot use the cloud-based AI tools now common in industry, leaving the most important systems with the least advanced protection.
+
+This challenge sits at the centre of several national priorities: the National Cyber Security Policy, CERT-In's six-hour incident-reporting mandate, the Digital Personal Data Protection Act, 2023, the IndiaAI Mission and the Atmanirbhar Bharat goal of sovereign technology. Meeting these commitments requires defence that is faster than the attacker, transparent to the analyst, and fully under national control.
+
+SOLUTION OVERVIEW
+
+KAVACH changes the question security systems ask. Instead of asking "is this traffic malicious?", it asks "where is this network heading, and is that path leading to a breach?" Much as a weather model forecasts a storm from changing conditions, KAVACH learns the normal rhythm of a network and forecasts when an attack is building.
+
+At its core is NetJEPA, a world-model AI developed by our team. It observes network activity in five-second snapshots, learns how the network changes over time, and predicts its likely state several steps ahead. This allows KAVACH to identify an attack as it begins, name its stage using the internationally recognised MITRE ATT&CK framework (from early reconnaissance through to data theft), and warn analysts before the attack escalates.
+
+Five qualities set KAVACH apart from existing solutions:
+• Prediction, not just detection: it forecasts attack progression with a clear measure of confidence, giving defenders time to act.
+• Full explainability: every alert shows which traffic patterns triggered it and how the AI reached its conclusion, and analysts can correct its reasoning. No decision is a black box.
+• Tamper-proof accountability: every prediction, model update and analyst action is recorded on a blockchain ledger, so evidence cannot be secretly altered and insider manipulation is exposed.
+• Security matched to sensitivity: controls tighten with the classification of each network. Routine office networks use standard login and automated response; sensitive systems require multi-factor login and analyst confirmation; classified networks require hardware-key login and approval from two officers for any action.
+• Sovereign and offline: it runs entirely on-premises on ordinary servers, with no dependence on foreign cloud services.
+
+For analysts, this means fewer false alarms, earlier warnings and a ready response plan for every alert. For government, it means auditable, explainable incident records that support CERT-In reporting and stronger protection for national infrastructure. KAVACH directly advances Digital India's goal of a secure, trusted digital backbone.
+
+The system is built entirely on open-source technology: PyTorch for AI, graph neural networks to model how computers connect and communicate, and a lightweight blockchain ledger for audit. This keeps KAVACH transparent, licence-free and deployable anywhere.
+
+IMPLEMENTATION FEASIBILITY
+
+KAVACH is not a concept on paper. A working prototype already exists, trained on real network traffic from the CIC-IDS-2017 public dataset and verified by 104 automated tests. It includes the complete pipeline: data ingestion, the NetJEPA model, forecasting, explainability, the response engine, the blockchain ledger, an analyst dashboard and an offline command-line tool.
+
+The 36-hour hackathon will therefore be used to strengthen and extend a proven system. Planned milestones include classification-based login and approval workflows, validation on two additional national-standard datasets (CSE-CIC-IDS-2018 and CTU-13), a comparison against additional AI baselines, and improvements to resilience against deliberate evasion. Work is divided across a multidisciplinary team covering AI, explainability, blockchain, cyber security and software engineering.
+
+Resource requirements are modest. The system needs no specialised hardware: the AI model is only about 5 MB, trains in roughly 21 minutes on an ordinary computer and runs without graphics processors. All datasets are public and all software is open-source, so there are no licensing barriers.
+
+The path from prototype to production is clear. After the hackathon, a pilot at one critical-infrastructure organisation would run KAVACH in passive monitoring mode alongside existing tools, calibrated to that organisation's traffic. Deployment would then expand to separate nodes for each classification tier, followed by sector-wide networks that share verified threat intelligence through the blockchain ledger. Because KAVACH connects passively to a network, it requires no changes to existing infrastructure, and each additional site needs only a standard server, allowing national scale-up at predictable cost.
+
+We have also assessed the system's limits openly. It detects new variants of known attack families well, but can miss attack types unlike anything in its training data. A layered design, adding rule-based checks and training on more varied traffic, is planned to close this gap.
+
+EXPECTED OUTCOMES
+
+KAVACH's results are measured on real network traffic that the system had never seen during training, and compared against the standard baseline method specified in the problem statement:
+• Detection accuracy improves by 76%, with an F1 score of 0.86 against 0.49 for the baseline.
+• False alarms fall by 78%, from 1,551 to 339 on the same traffic, freeing analysts to focus on genuine threats.
+• Attacks are forecast one to three steps ahead with 96–97% accuracy on the standard AUC measure, and the start of an attack is anticipated with 90–93% accuracy.
+• Its confidence levels are reliable: when KAVACH indicates 90% certainty, it is correct about 95% of the time.
+• Security records can be verified for tampering in under a millisecond, replacing audits that currently take days.
+• Response time shrinks from months to minutes: an attack is flagged, explained and matched to a response plan as it unfolds, against the 236-day average time to detection.
+• Incident records are generated automatically with evidence attached, making CERT-In's six-hour reporting deadline practical to meet.
+
+The economic case is strong. IBM's 2026 findings show that Indian organisations using AI and automation extensively face breach costs about ₹10.3 crore lower than those that do not. With zero licensing cost, no cloud fees and commodity hardware, preventing or shortening even one major breach would repay KAVACH's deployment many times over.
+
+Beyond the numbers, KAVACH improves how security teams work. Analysts receive clear explanations instead of unexplained scores, a single connected incident instead of hundreds of scattered alerts, and a prioritised action plan instead of guesswork. Decision-makers gain cryptographic proof that security records are intact, strengthening accountability and public trust.
+
+KAVACH is designed to serve security teams across all six NCIIPC critical sectors, along with national agencies such as NTRO, NCIIPC, CERT-In and sectoral CERTs. Over the long term, it protects the services citizens rely on every day: electricity, banking, telecommunications, transport and government systems. It supports UN Sustainable Development Goal 9 (resilient infrastructure and innovation) and Goal 16 (strong, accountable institutions), and contributes to national self-reliance in strategic technology.
+
+STRATEGIC VALUE
+
+KAVACH meets every requirement of the NTRO problem statement and goes further, adding blockchain-backed accountability and security that scales with national sensitivity. It is working, measured, affordable and entirely indigenous. It offers India a practical path from reacting to cyberattacks to anticipating them: a true kavach, or shield, for the nation's digital future.
+
+Made in India, for India.

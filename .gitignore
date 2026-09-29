@@ -1,6 +1,8 @@
 .venv/
 __pycache__/
 *.pyc
+*.DS_Store
+train_retrain_full.log
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
@@ -8,3 +10,10 @@ data/processed/*
 *.pt
 *.ckpt
 .env
+# tiered-auth secrets (password hashes, TOTP seeds, hardware-key files)
+data/auth/
+
+# local sync artefacts
+.kavach_sync_in.tgz
+.kavach_sync_out.tgz
+frontend/node_modules/

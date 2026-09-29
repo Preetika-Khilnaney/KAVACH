@@ -1,0 +1,397 @@
+KAVACH: A PREDICTIVE NETJEPA AND BLOCKCHAIN SHIELD GUARDING INDIA'S CRITICAL NETWORKS
+
+SIH 2026 · Problem Statement SIH26153 · National Technical Research Organisation (NTRO)
+Theme: World-Model-Based AI for Predictive Cyber Defence of Enterprise and Critical Information Infrastructure
+Team Expertise: Artificial Intelligence · World Models (NetJEPA) · Blockchain · Cyber Security
+
+SECTION 1: PROBLEM ANALYSIS
+
+1.1 The Scale of the Threat
+
+India's digital expansion has turned its networks into one of the world's most targeted attack surfaces. The Indian Computer Emergency Response Team (CERT-In) handled 15.92 lakh cyber security incidents in 2023, 20.41 lakh in 2024 and 29.44 lakh in 2025, according to figures placed before the Lok Sabha by the Ministry of Electronics and Information Technology. That is an 85% rise in two years, or roughly 8,000 incidents every day. Behind each number sits a network that was probed, entered or disrupted, and a defender who learned about it too late.
+
+The financial cost is rising just as sharply. IBM's Cost of a Data Breach Report 2026 places the average cost of a data breach in India at a record ₹25.5 crore, up 15.9% from ₹22 crore in 2025. The same study shows the value of intelligent defence: organisations with no AI or security automation faced an average breach cost of ₹31.6 crore, while those with extensive AI and automation contained the damage at ₹21.3 crore, a saving of more than ₹10 crore per incident. Yet only 32% of Indian organisations reported extensive AI and automation across their security operations. The protective technology exists; its adoption, and above all its trustworthiness in sensitive settings, lags badly.
+
+Speed is the defining variable of the modern attack. The CrowdStrike 2026 Global Threat Report measured the average eCrime "breakout time" (the interval between an adversary's first foothold and their first lateral move inside the network) at just 29 minutes, 65% faster than the year before. The fastest recorded breakout took 27 seconds, and in one intrusion data exfiltration began within four minutes. Meanwhile, IBM reports that Indian organisations without automation took an average of 236 days to identify a breach and a further 75 days to contain it. The gap between a 29-minute attack and a 236-day detection cycle is the central failure this proposal addresses.
+
+1.2 Why Current Defences Fail
+
+The problem is not that India lacks security tools. It is that the dominant generation of tools rests on an assumption attackers broke long ago. We identify six pain points that current solutions fail to address.
+
+Pain point 1: Detection is static and reactive. Conventional machine-learning intrusion detection classifies each network flow in isolation and assigns a binary label: benign or malicious. As the problem statement observes, this discards the temporal and causal structure of an infiltration: the order in which ports are probed, the way SYN flags precede ACK floods, the timing of reconnaissance packets before lateral movement. An infiltration is a process that unfolds over time, not a single anomalous packet. A classifier that only asks "is this flow bad?" will always answer after the attacker has acted.
+
+Pain point 2: No foresight. Existing systems report what has happened. None of the widely deployed tools tell a defender what is about to happen: that a reconnaissance scan observed now is likely to become an initial-access attempt within minutes. Without forecasting, analysts cannot prioritise, and the 29-minute breakout window closes before a human can respond.
+
+Pain point 3: Black-box AI cannot be trusted with national-security decisions. Where AI is deployed, it typically emits a score with no reasoning. An analyst at a power utility or strategic establishment cannot justify isolating a production system on the word of an opaque model, nor defend that decision in an after-action review. The problem statement is explicit that "black-box outputs without interpretability are not acceptable", yet this remains the norm in commercial products.
+
+Pain point 4: Single-level telemetry creates blind spots. Flow-based tools see aggregate volume but miss slow, low-rate reconnaissance deliberately paced to stay under flow thresholds. Packet-based tools see timing and flags but lose the broader behavioural picture. Few systems combine both, leaving exploitable gaps between them.
+
+Pain point 5: Cloud dependence excludes the most critical networks. Most modern AI security platforms rely on vendor cloud services for inference, updates and threat intelligence. Air-gapped defence, strategic, space, nuclear and classified government networks cannot use them. The networks that most need advanced AI defence are exactly the ones shut out of it.
+
+Pain point 6: The defence system itself can be subverted. Logs can be altered, evidence deleted and AI models poisoned through manipulated analyst feedback. An insider, or an adversary who already holds a foothold, can erase their tracks. Existing tools offer little assurance that their own records, models and decisions have not been tampered with.
+
+1.3 Quantifying the Scope
+
+The affected population spans the whole national digital economy, but the stakes concentrate in Critical Information Infrastructure (CII). The National Critical Information Infrastructure Protection Centre (NCIIPC), established under Section 70A of the Information Technology Act, 2000 and functioning under NTRO, identifies six critical sectors: Power and Energy; Banking, Financial Services and Insurance; Telecom; Transport; Government; and Strategic and Public Enterprises. IBM's 2025 India findings show some of the highest per-breach costs in exactly these kinds of environments: research organisations averaged ₹28.9 crore, transportation ₹28.8 crore and industrial organisations ₹26.4 crore per breach.
+
+The cost in analyst time is equally severe. A Security Operations Centre (SOC) analyst facing thousands of uncorrelated, unexplained alerts spends most of a shift triaging noise. Our own benchmark illustrates the point: a conventional logistic-regression detector on the same traffic flags 29% of benign windows as attacks. At national scale, that false-positive load becomes thousands of wasted analyst-hours a day, and genuine attacks lost in the noise.
+
+1.4 Policy Alignment and National Priorities
+
+The problem sits at the intersection of several national initiatives:
+
+• National Cyber Security Policy (2013): calls for protecting CII through indigenous capability.
+• IT Act, 2000, Sections 70 and 70A: empower the government to declare Protected Systems and establish NCIIPC to safeguard them.
+• CERT-In Directions (April 2022): mandate reporting of cyber incidents within six hours, a timeline that is unrealistic without automated, explainable detection.
+• Digital Personal Data Protection Act, 2023: raises the legal and financial cost of breaches involving personal data.
+• IndiaAI Mission (2024): an outlay of over ₹10,000 crore that prioritises trustworthy, indigenous AI.
+• Atmanirbhar Bharat: calls for sovereign technology in strategic sectors, free of foreign cloud dependence.
+
+1.5 The Urgency
+
+Every one of these trends points the same way: attacks are faster, costlier and more frequent, while the most critical networks are still served by reactive, opaque or cloud-bound tools. India needs a defence system that learns how its networks behave, anticipates where an attack is heading, explains every decision, runs entirely offline and cannot be quietly subverted from within.
+
+Key sources: CERT-In incident data (MeitY written reply, Lok Sabha, 2025); IBM Cost of a Data Breach Report 2025 and 2026, India findings; CrowdStrike 2026 Global Threat Report; Information Technology Act, 2000 (Sections 70, 70A).
+
+This is the gap KAVACH closes: a shift from detecting yesterday's attack to predicting tomorrow's.
+
+SECTION 2: PROPOSED SOLUTION INNOVATION
+
+2.1 Unique Value Proposition
+
+KAVACH is an offline, world-model AI shield that learns how a network behaves, forecasts where an attack is heading before it completes, explains every decision, and records it all on a tamper-evident blockchain ledger, so that India's critical networks are defended by AI that is predictive, transparent and trustworthy by design.
+
+2.2 The Core Innovation: From Classification to World Modelling
+
+Conventional intrusion detection asks one question: is this traffic malicious? KAVACH asks a fundamentally different one: given how this network is behaving now, what state will it be in next, and is that trajectory heading towards compromise?
+
+To answer it, we built NetJEPA, a network-specific adaptation of the Joint-Embedding Predictive Architecture (JEPA) paradigm for world models. NetJEPA does not memorise signatures. It learns an internal model of how network states transition over time, P(S_t+1 | S_t), exactly the capability the problem statement calls for. It works in four steps:
+
+1. Represent each 5-second window of traffic as a graph: hosts and network segments are nodes, communication patterns are edges, and each carries flow-level and packet-level features.
+2. Encode the graph with a Heterogeneous Graph Transformer (HGT), then pass the last three windows through a temporal encoder (GRU), producing a compact latent state that captures both the structure of the network and its recent history.
+3. Predict the next latent state as a full probability distribution (mean and variance), not a single point. Monte-Carlo rollouts of this distribution simulate K steps into the future.
+4. Decode each current and forecast state into an infiltration probability and a MITRE ATT&CK stage.
+
+This design differentiates KAVACH from classical approaches by far more than 30% on every metric we measured. On 8,043 held-out windows of real CIC-IDS-2017 traffic, drawn from a later time period than the training data:
+
+• F1 score: 0.86 with KAVACH, compared with 0.49 for the baseline (+76%).
+• ROC AUC: 0.96 with KAVACH, compared with 0.73 for the baseline (+32%).
+• False-positive rate: 6.3% with KAVACH, compared with 29% for the baseline (4.6× fewer false alarms).
+• Forecast AUC, 1–3 windows ahead: 0.96–0.97 with KAVACH, compared with 0.73–0.74 for the baseline (+31%).
+
+Critically, giving the same baseline the same three-window history did not help it (F1 0.46). The gain comes from learned temporal dynamics, not from simply seeing more data. That is the direct, measurable evidence the problem statement asks for.
+
+Three further innovations set KAVACH apart:
+
+• Joint flow and packet learning: the model is trained on both telemetry levels together. On raw packet captures, combining them yields F1 0.87, against 0.62 for flow features alone and 0.61 for packet features alone.
+• Supervised transition learning: ground-truth attack timelines from the dataset supervise the model's future predictions, not only its present ones, which is why forecast accuracy matches detection accuracy.
+• A blockchain trust layer around the AI: the AI's own outputs, models and training data are made tamper-evident, which addresses the insider threat no conventional tool covers.
+
+2.3 Key Features and Their Connection to the Problem Statement
+
+Feature 1: Dual-level traffic ingestion. (PS: "Teams must work with both flow-level and packet-level features")
+KAVACH ingests raw PCAP captures through a custom streaming parser (about ten times faster than Scapy, which remains as a fallback) and flow records in CIC-IDS-2017, CSE-CIC-IDS-2018 and CTU-13 formats, detected automatically. Each 5-second window carries 16 flow-level features (TCP flag counts, bytes and packets per flow, duration, inter-arrival statistics, bidirectional ratios, protocol mix) and 11 packet-level features (TTL mean and variance, TCP window size, fragment flags, payload size distribution, port-scan signatures, retransmission counts), exactly the attributes the problem statement specifies.
+
+Feature 2: World-model forecasting with uncertainty. (PS: "Forecast future network states and estimate the probability of attacker progression")
+For every window, KAVACH outputs the current infiltration probability, a time-series forecast for the next three windows with a 10th–90th percentile uncertainty band, the probability of an attack within K windows, and the probability of stage progression. When forecasting the onset of attacks (windows that are benign now but attacked later), it achieves an AUC of 0.90–0.93. Its predicted 90% confidence intervals contain the true next state 95% of the time, so its uncertainty is honest rather than decorative.
+
+Feature 3: MITRE ATT&CK stage mapping and attack-chain reconstruction. (PS: "Map predicted behaviour to recognised attack stages")
+Each current and forecast state is classified into Reconnaissance, Initial Access, Lateral Movement, Command and Control or Exfiltration. Stage classification reaches a macro-F1 of 0.75, with F1 0.91 for Reconnaissance and 0.86 for Initial Access. Related windows are stitched into a single attack-chain timeline, so an analyst sees one evolving incident instead of hundreds of isolated alerts.
+
+Feature 4: Six-layer explainability. (PS: "Black-box outputs without interpretability are not acceptable")
+KAVACH goes well beyond a list of top features. Every alert can be explained at six levels:
+1. Feature attribution (Integrated Gradients against a benign baseline): which flags, ports and flow statistics drove the prediction.
+2. Learned concepts (sparse autoencoder with 1,231 active features, 88 of them attack-specific): what patterns the model recognised.
+3. Causal tracing: which part of the model actually made the decision.
+4. Tuned lens: how the model's belief built up layer by layer, from 0.77 AUC on raw features to 0.96 at the final embedding.
+5. Linear probes: what each layer "knows" about scanning, escalation and imminent attack (up to 0.93 balanced accuracy).
+6. Concept bottleneck: reasoning expressed in human-readable concepts that an analyst can override, immediately seeing how the verdict changes.
+
+Feature 5: Actionable response and a tamper-evident audit trail. (PS: "interpretable decision support for defenders")
+Each alert produces a prioritised response playbook (Immediate, Short-term, Ongoing, Investigate) with ready-to-run commands and the matching MITRE mitigation. Every prediction, model update, training dataset and analyst action is hash-chained on a blockchain ledger with risk-tiered logging and Merkle batching. Smart contracts enforce three rules:
+• automatic escalation of unacknowledged attacks;
+• consensus-based IP blocking that requires agreement from at least three nodes;
+• automatic rollback of a model that performs worse than its predecessor.
+
+Feature 6: Classification-aware security controls. (PS: "applicability to enterprise environments and Critical Information Infrastructure")
+KAVACH applies security controls proportionate to the sensitivity of each network. An independent KAVACH node is deployed per classification tier, and authentication strength and response authority increase with the tier:
+• Low (e.g. administrative and office networks): role-based authentication, with automated execution of approved responses.
+• Moderate (e.g. finance, procurement and personnel systems): multi-factor authentication, with analyst confirmation required before any response is executed.
+• High / Confidential (e.g. classified research, defence and grid-control networks): hardware-token authentication, with two-person authorisation mandatory for every response action.
+Threat intelligence is shared strictly upward, from lower tiers to higher tiers, so information from a classified zone never flows into a less sensitive one.
+
+2.4 The Complete User Journey
+
+Consider a SOC analyst at a telecom operator's network operations centre.
+
+1. Secure entry. The analyst logs in to the offline KAVACH console using the authentication level of their network tier (Feature 6). Every login is recorded on the ledger.
+2. Continuous monitoring. KAVACH passively receives traffic from a network TAP or mirror port, or processes an uploaded capture. The Operations dashboard streams live risk scores window by window.
+3. Early warning. At 10:02, the risk timeline rises: a host is sweeping destination ports. KAVACH labels the window Reconnaissance and its forecast shows an 80% chance of progression within the next three windows. The analyst has warning before the breakout, not after.
+4. Understanding. The analyst opens the alert. The explanation shows that a sharp rise in unique destination ports and flow count from a single source drove the decision, that the model recognised a scanning pattern, and how its confidence built up.
+5. Decision and action. The response panel recommends blocking the scanning source at the perimeter, reviewing exposed services and enabling enhanced logging, with the commands pre-filled. The analyst confirms; in a High / Confidential tier, a second officer must authorise the action before enforcement.
+6. Proof. The verdict, the action and the model version that produced the alert are chained on the ledger. Weeks later, an auditor can verify cryptographically that none of it was altered.
+7. Learning. The analyst's verified verdicts, audited for signs of feedback poisoning, feed safe retraining. The system improves without becoming an attack vector.
+
+The whole journey, from first anomaly to documented, explainable action, happens in minutes rather than the 236-day identification cycle the industry currently averages.
+
+2.5 Integration with Existing Systems
+
+KAVACH is designed to complement existing infrastructure, not replace it:
+
+• Passive deployment: it connects to a SPAN or mirror port or a network TAP. It never sits in the traffic path, so it cannot become a single point of failure for the network itself.
+• Standard inputs: it accepts PCAP, NetFlow/IPFIX-style flow records and the major public dataset formats, so it can sit alongside existing sensors and packet brokers.
+• Firewall enforcement: response actions are issued as standard firewall rules to the organisation's existing on-premises firewall. KAVACH decides; the firewall enforces.
+• Open APIs: a REST and WebSocket API (FastAPI) exposes detections, forecasts, explanations and ledger evidence, allowing integration with existing SIEM and SOC workflows.
+• Offline threat sharing: signed ledger bundles can be exported and imported over secure removable media, enabling intelligence sharing between air-gapped sites and with sectoral CERTs without any network connection.
+
+2.6 Scalability: From Prototype to National Implementation
+
+Stage 1: Prototype (current). A fully working system on a single machine: ingestion, the NetJEPA model, six-layer explainability, a response engine, the blockchain ledger, a web dashboard and an offline command-line interface. The 1.3-million-parameter model (about 5 MB) trains in about 21 minutes on two CPU cores and runs inference without a GPU.
+
+Stage 2: Enterprise pilot. Deployment at one CII organisation with a separate node per classification tier, fine-tuning on the organisation's own traffic, and integration with its firewall and SIEM.
+
+Stage 3: Sectoral deployment. Multiple nodes per sector connected through a permissioned multi-node ledger, with consensus between nodes, sharing verified threat indicators within a sector while keeping raw traffic local.
+
+Stage 4: National grid. A federation of sector deployments coordinated with NCIIPC and CERT-In, where one site's early warning strengthens every other site's defence, all without any data leaving sovereign, air-gapped infrastructure.
+
+Because KAVACH needs no GPUs, cloud or licences, each additional node adds only commodity hardware cost, so the economics hold at national scale.
+
+2.7 Use Cases and Scenarios
+
+• Telecom core network: early detection of reconnaissance and command-and-control beaconing across operator backbones, with forecasts that prioritise the few threats likely to escalate.
+• Power and energy: protection of the IT networks that sit alongside grid control systems, where an explainable, approval-gated response matters more than raw automation.
+• Banking and finance: predicting brute-force and web-application attack progression against payment and core-banking systems, with an auditable evidence trail for regulators.
+• Strategic and defence establishments: fully air-gapped operation with two-person approval, tamper-evident logs and no foreign cloud dependence.
+• Government networks: reducing alert fatigue and meeting CERT-In's six-hour reporting requirement with explainable, pre-documented incidents.
+
+2.8 How KAVACH Compares
+
+• Learns temporal network behaviour. KAVACH: Yes: graph and temporal world model. (Signature IDS: No; ML classifiers: No (each flow in isolation); cloud AI platforms: Partial.)
+• Forecasts attack progression. KAVACH: Yes: 1–3 windows ahead, with uncertainty. (Signature IDS: No; ML classifiers: No; cloud AI platforms: Rarely.)
+• MITRE ATT&CK stage mapping. KAVACH: Yes, for both current and forecast states. (Signature IDS: Rule-based; ML classifiers: Rarely; cloud AI platforms: Yes.)
+• Explains its decisions. KAVACH: Six layers, analyst-correctable. (Signature IDS: Rule match only; ML classifiers: Rarely; cloud AI platforms: Limited, vendor-controlled.)
+• Uses flow and packet features together. KAVACH: Yes: joint training. (Signature IDS: Packet only; ML classifiers: Usually flow only; cloud AI platforms: Varies.)
+• Runs fully air-gapped. KAVACH: Yes: CPU-only, no cloud. (Signature IDS: Yes; ML classifiers: Yes; cloud AI platforms: No.)
+• Tamper-evident record of its own decisions. KAVACH: Yes: blockchain ledger. (Signature IDS: No; ML classifiers: No; cloud AI platforms: No.)
+• Licensing cost. KAVACH: Nil: fully open-source. (Signature IDS: Varies; ML classifiers: Varies; cloud AI platforms: High subscription.)
+
+2.9 Design Principles
+
+Four principles guided every design decision. Predict, don't just detect: the unit of analysis is a trajectory of network states, not an isolated flow. Explain everything: no score reaches an analyst without the evidence behind it, because in national-security settings an unexplained alert is an unusable one. Trust nothing silently: the AI's own outputs, models and training data are subject to the same tamper-evidence as the networks it protects. Sovereign by default: every component runs on-premises on commodity hardware, with no dependence on foreign cloud services, making the solution deployable in the most sensitive environments in the country.
+
+2.10 Target Users
+
+• Primary: SOC analysts and incident responders in NCIIPC-notified CII organisations (telecom operators, power utilities, banks, transport operators, government departments and strategic public enterprises).
+• National agencies: NTRO/NCIIPC, CERT-In and sectoral CERTs, who benefit from explainable, verifiable incident evidence and offline threat-sharing bundles.
+• Defence and strategic establishments: operators of air-gapped and classified networks who cannot use cloud-based AI.
+• Enterprise security teams and auditors: CISOs who need calibrated risk scores for prioritisation, and auditors who need cryptographic proof that security records are intact.
+
+KAVACH turns the network from a passive victim into a system that anticipates its own threats, and the next section shows how it is engineered to do so reliably.
+
+SECTION 3: TECHNICAL IMPLEMENTATION
+
+3.1 Technology Choices and Their Justification
+
+Every technology in KAVACH was chosen for three properties the problem statement and the target environment demand: it must be open-source, it must run fully offline, and it must run on commodity hardware without GPUs.
+
+• Core language: Python 3. The standard for AI and security research; a large open-source ecosystem; easy for government teams to audit and maintain.
+• Deep learning: PyTorch. Mature, open-source and CPU-efficient; supports the custom probabilistic predictor and differentiable explainability methods.
+• Graph learning: PyTorch Geometric (HGTConv). Heterogeneous Graph Transformers natively model different node types (network segments, hosts) and relation types, matching how real networks are structured.
+• Packet parsing: Custom struct-based PCAP/PCAPNG reader, with Scapy fallback. Streams multi-gigabyte captures without loading them into memory and runs about 10× faster than Scapy, while Scapy remains available for robustness, as the problem statement suggests.
+• Data processing: NumPy, pandas. Fast, vectorised feature engineering over millions of flow records.
+• Baselines and analysis: scikit-learn. Logistic-regression baselines, linear probes, ridge-regression tuned lens and calibration metrics: standard, transparent and reproducible.
+• Backend API: FastAPI + Uvicorn. High-performance asynchronous REST and WebSocket support for live window-by-window streaming; auto-generated API documentation.
+• Storage: SQLite (WAL mode). Zero-administration, file-based and fully offline; ideal for air-gapped nodes, with a clear migration path to replicated databases at scale.
+• Blockchain ledger: Custom hash-chained ledger with Merkle batching and Python smart contracts. Lightweight and air-gap native; the design mirrors permissioned ledgers such as Hyperledger Fabric, which remains the target for multi-site deployment.
+• Frontend: React + TypeScript + Vite + Tailwind CSS. A responsive, type-safe analyst dashboard; fonts and assets are bundled locally, so the interface runs with zero external requests.
+• Testing: pytest (104 automated tests). Guards correctness across ingestion, model, ledger, contracts and API.
+
+3.2 System Architecture
+
+KAVACH is organised into seven layers, each with a single, clear responsibility:
+
+1. Ingestion layer: reads PCAP captures and flow logs, detects the dataset format, and cuts traffic into 5-second windows carrying joint flow-level and packet-level features.
+2. Graph builder: converts each window into a heterogeneous graph of network segments, hosts and connections, with a 29-feature state vector (16 flow, 11 packet and 2 modality flags).
+3. NetJEPA world model: a two-layer HGT spatial encoder, a two-layer GRU temporal encoder over the last three windows, and a probabilistic predictor that outputs the mean and variance of the next latent state. During training, an exponential-moving-average target encoder and a VICReg objective prevent representational collapse.
+4. Prediction heads: a temperature-calibrated infiltration head and a MITRE ATT&CK stage classifier, applied both to the current state and to each forecast state.
+5. Explainability engine: six complementary methods (Integrated Gradients, sparse autoencoder, causal tracing, tuned lens, linear probes, concept bottleneck), all operating on the exact inference path the live system uses.
+6. Response and trust layer: attack-chain reconstruction, stage-specific playbooks, smart contracts and the tamper-evident ledger.
+7. Interface layer: a FastAPI backend, a React analyst dashboard and an offline command-line tool.
+
+The whole stack sits inside a single air-gapped boundary. No component makes an outbound network call.
+
+3.3 Data Flow: Input → Processing → Output
+
+Input sources. Raw packet captures (PCAP/PCAPNG) from a passive TAP or mirror port, or uploaded files; flow records in CIC-IDS-2017, CSE-CIC-IDS-2018 or CTU-13 format. The prototype is trained and validated on the CIC-IDS-2017 dataset (Canadian Institute for Cybersecurity), using both its flow records and its raw Monday and Wednesday packet captures, covering 14 attack types across 7 families: DoS, DDoS, port scanning, brute force, web attacks, botnet and infiltration.
+
+Processing methodology.
+1. Parsing: the streaming parser decodes each packet's IPs, ports, protocol, TTL, TCP window, flags, fragment bits, payload size and retransmission status.
+2. Windowing: packets and flows are grouped into 5-second windows. Flow statistics are computed with IPFIX-style active timeouts matching the window length, so flow-level and packet-level views describe exactly the same time slice.
+3. Normalisation: features are z-scored per capture, with count features log-scaled; flags and ratios are preserved in raw form.
+4. Labelling (training only): attack windows are labelled from the dataset's published attack timeline, including source and victim addresses. We found and fixed a labelling defect that had silently mislabelled about half of the attack windows on two capture days; all reported results use the corrected labels.
+5. Graph construction and encoding: each window becomes a graph; NetJEPA encodes the last three windows into the latent state z_t.
+6. Forward simulation: the probabilistic predictor draws 64 Monte-Carlo samples per step and rolls out three steps, producing forecast distributions for infiltration and stage.
+7. Calibration: temperature scaling, fitted on a separate calibration split, ensures that a displayed 80% risk genuinely means about 80% (expected calibration error falls from 0.049 to 0.033).
+8. Explanation and response: attributions, concepts and playbooks are generated, and the result is chained to the ledger according to its risk tier.
+
+Output delivery. For every window, the analyst receives the calibrated infiltration probability, the MITRE stage and its confidence, a three-step forecast with an uncertainty band and progression probability, the top driving features, a prioritised response plan and a ledger receipt. Results stream live to the dashboard over WebSocket, are stored in the results database, and are available through the API and the command-line tool.
+
+3.4 API Integrations and External System Connections
+
+KAVACH exposes a documented REST and WebSocket API so it can slot into existing SOC tooling:
+
+• POST /ingest/upload and WS /ws/pipeline: submit a capture and stream results window by window.
+• GET /flows, GET /flows/{id}: query and filter scored windows by risk, stage, source or time.
+• GET /explain/{id}, POST /explain/{id}/concepts: retrieve deep explanations and apply analyst concept overrides.
+• GET /attack-chain/{id}: retrieve the reconstructed incident timeline and remediation plan.
+• POST /feedback: record analyst verdicts, chained as tamper-evident analyst actions.
+• GET /benchmark, GET /provenance: model performance and model/data lineage for audit.
+• /blockchain endpoints: verify the chain, retrieve cryptographic evidence for any prediction, and export or import signed bundles for air-gapped cross-site synchronisation.
+• WS /ws/replay: replay historical captures for training and forensic review.
+
+External connections are deliberately limited to on-premises systems: network TAPs and packet brokers for input, the organisation's own firewall for enforcement, and SIEM platforms through the API. There are no internet or cloud dependencies of any kind.
+
+3.5 Security, Privacy and Compliance
+
+• Air-gapped by design: no outbound connections, telemetry or licence checks. The system works identically with the network cable unplugged.
+• Data minimisation: KAVACH analyses packet headers and statistics, never payload content, and raw traffic never leaves the local node. Only derived threat indicators (such as attacker IPs and pattern hashes) are shared between sites.
+• Tamper-evident audit: every prediction, model load (weights hashed on each load), training-data manifest and analyst action is hash-chained. Low-risk windows are batched under Merkle roots for efficiency; high-risk windows get full individual blocks with feature, graph and attribution hashes. Any modification or deletion is detected on verification.
+• Model integrity: the model registry refuses incompatible checkpoints, verifies training data against its chained manifest, and automatically rolls back a model whose false-positive rate on reviewed alerts exceeds twice its predecessor's.
+• Feedback-poisoning defence: analyst verdicts are audited for suspicious volume, patterns and timing before they are allowed to influence retraining.
+• Tiered access control: authentication and response authority scale with the network's classification tier (Feature 6), with every login attributable.
+• Compliance alignment: designed around NCIIPC guidance for protected systems, CERT-In's incident-reporting directions (explainable, timestamped incident records ready within the six-hour window) and the data-minimisation principles of the DPDP Act, 2023.
+
+3.6 Interface Design Philosophy
+
+The analyst interface follows three principles: clarity under pressure, evidence before action, and zero external dependencies.
+
+• Operations dashboard: a live risk timeline and MITRE ATT&CK matrix, so an analyst grasps the network's state at a glance.
+• Flow detail: for any window, the forecast band, stage distribution, driving features and deep explanations, one click from the alert.
+• Attack chain: related windows presented as a single incident narrative with its response plan.
+• Forensics and provenance: ledger verification, tamper demonstration, evidence retrieval and model lineage.
+• Benchmark: live validation results, so decision-makers can see exactly how well the model performs and where it is weak.
+• Command-line interface: predict, benchmark, train, verify-chain and info commands run headless for scripted, server-room or fully disconnected use.
+
+The dashboard is a web application served locally from the KAVACH node, so it works on any workstation browser inside the secure network without installation. All fonts and assets are bundled, so it renders fully offline.
+
+3.7 Development Tools and Frameworks
+
+• Version control and reproducibility: Git; fixed random seeds; training configuration saved with every checkpoint; a training-data manifest hash chained before each training run.
+• Testing: pytest, with 104 automated tests covering parsers, feature extraction, graph construction, the model, calibration, ledger tamper and deletion detection, Merkle batches, smart contracts, feedback audit and every API endpoint. A test harness isolates the ledger and databases so tests never touch production data.
+• Frontend build: Vite and TypeScript for fast, type-checked builds.
+• Evaluation tooling: a built-in benchmark suite that runs baselines, calibration, modality ablation, temporal-context ablation, leave-one-attack-out generalisation, adversarial robustness and interpretability checks from a single command.
+
+With the architecture proven end to end, the remaining question is whether it can be delivered, deployed and sustained, which the next section answers with concrete plans and numbers.
+
+SECTION 4: FEASIBILITY AND IMPACT ASSESSMENT
+
+4.1 A Working Foundation
+
+KAVACH is not a concept on paper. The core system (ingestion, the NetJEPA world model, forecasting, six-layer explainability, the response engine, the blockchain ledger, the web dashboard and the command-line tool) is already built, trained on real traffic and covered by 104 passing automated tests. The 36-hour hackathon is therefore planned as a focused sprint to harden, extend and demonstrate a proven system, not a race to build one from nothing.
+
+4.2 36-Hour Hackathon Development Timeline
+
+• Hours 0–3: Environment setup, dataset verification, baseline re-run. Deliverable: Reproducible environment; benchmark matches reported numbers.
+• Hours 3–9: Tiered authentication and approval workflows (Low / Moderate / High). Deliverable: Role-based logins, MFA hooks, two-person approval for confidential zones.
+• Hours 9–15: Response-engine hardening: correct attacker/victim direction from traffic flow, firewall rule export with expiry timers. Deliverable: Accurate, enforceable, reversible response actions.
+• Hours 15–21: Cross-dataset validation on CSE-CIC-IDS-2018 and CTU-13 (parsers already built); a sequence-model (LSTM) baseline for comparison. Deliverable: Extended benchmark table across datasets and model families.
+• Hours 21–27: Robustness: noise-augmented training run; lightweight rule layer for scan and flood patterns to back up the model. Deliverable: Improved adversarial resilience and detection of unseen families.
+• Hours 27–32: Integration testing, full test suite, dashboard polish. Deliverable: Stable end-to-end demo.
+• Hours 32–36: Demo rehearsal, documentation, final presentation. Deliverable: Demo video, architecture document, README.
+
+Team roles (four to six members):
+• AI/world-model engineer: NetJEPA training and evaluation.
+• Explainability engineer: interpretability methods and analyst-facing explanations.
+• Blockchain engineer: ledger, smart contracts and audit.
+• Security engineer: ingestion, datasets, attack mapping and response playbooks.
+• Full-stack developer: API and dashboard.
+• One member as integrator and presenter.
+
+4.3 Required Resources
+
+• Datasets (all public): CIC-IDS-2017 (flow CSVs and raw PCAPs), CSE-CIC-IDS-2018 and CTU-13.
+• Software (all open-source): Python, PyTorch, PyTorch Geometric, scikit-learn, pandas, NumPy, Scapy, FastAPI, SQLite, React, TypeScript, Vite, pytest.
+• Hardware: standard laptops or a single commodity server. No GPU is required: the model trains in about 21 minutes on two CPU cores.
+• External APIs: none. KAVACH is fully offline by design.
+
+4.4 Concrete Impact Metrics
+
+All figures below are measured on held-out validation data (8,043 windows) unless stated otherwise:
+
+• Detection accuracy: F1 score rises from 0.49 (logistic-regression baseline) to 0.86, a 76% improvement; ROC AUC from 0.73 to 0.96.
+• False alarms cut by 78%: on the same benign traffic, false alerts fall from 1,551 to 339 (false-positive rate from 29% to 6.3%), directly reducing analyst triage workload.
+• Predictive warning: attacks are forecast 1–3 windows ahead with AUC 0.96–0.97, and attack onsets (quiet now, attacked soon) are forecast with AUC 0.90–0.93, giving defenders warning before escalation.
+• Both telemetry levels matter: on raw captures, joint flow and packet features achieve F1 0.87, against 0.62 and 0.61 for either level alone.
+• Temporal learning pays: a three-window context outperforms single-window scoring (F1 0.77 vs 0.74 under identical training), while the baseline gains nothing from the same history.
+• Trustworthy confidence: calibration error falls from 0.049 to 0.033; predicted 90% intervals cover the true next state 95% of the time.
+• Faster ingestion: the custom parser processes packet captures about 10× faster than Scapy.
+• Lightweight: a 5 MB model with 1.3 million parameters; no GPU needed, so it can be deployed on existing server hardware.
+• Audit in milliseconds: cryptographic verification of a 37-block ledger completed in under one millisecond in our tests, turning audits that take days of manual log collection into an instant check.
+
+4.5 Challenges and Mitigation Strategies
+
+We believe a credible proposal must state its limitations honestly, alongside a plan for each.
+
+Challenge 1: Generalising to entirely unseen attack families. We ran the problem statement's "generalise to unseen attacks" requirement as a formal leave-one-attack-family-out experiment, retraining without each family and testing on it. KAVACH transferred strongly to unseen DDoS (AUC 0.98, 95% recall) because it had learned related DoS dynamics, but was weaker on families unlike anything in training, such as port scanning (AUC 0.58).
+Mitigation: a layered detection ensemble (NetJEPA, plus a transparent rule layer for scan, flood and brute-force patterns, plus per-host statistical baselines); training on more diverse datasets (CSE-CIC-IDS-2018, CTU-13 and site-specific traffic); and continuous learning from verified analyst feedback.
+
+Challenge 2: Adversarial evasion. Our robustness test found that small, targeted feature perturbations can flip some detections.
+Mitigation: noise-augmented and adversarial training, plus the ensemble above. An attacker would then have to evade several independent detectors at once, and in real traffic, features like port fan-out are coupled to the attack itself, so evading them means doing less of the attack.
+
+Challenge 3: Rare attack stages. Public datasets contain very little lateral-movement and exfiltration traffic.
+Mitigation: supplement with additional datasets and red-team exercise captures during pilot deployment, and fine-tune on sector-specific data.
+
+Challenge 4: Laboratory versus real enterprise traffic. Public datasets are generated in testbeds.
+Mitigation: a site-calibration phase at each pilot deployment (re-fitting normalisation, temperature and thresholds on local benign traffic), with performance tracked continuously on the Benchmark page.
+
+Challenge 5: Scaling the ledger across sites. The prototype uses a single-writer local ledger.
+Mitigation: migrate to a permissioned multi-node ledger (such as Hyperledger Fabric with Raft ordering) with per-node signing keys, and periodic Merkle-root anchoring to write-once offline storage.
+
+Challenge 6: Analyst trust and adoption. Security teams are cautious about AI.
+Mitigation: the six-layer explanations, calibrated confidence, human approval gates and concept overrides keep humans in control, which is exactly what builds adoption in high-stakes environments.
+
+4.6 Post-Hackathon Roadmap
+
+• Months 0–3: Hardening. Detection ensemble, adversarial training, cross-dataset validation, production authentication and a replicated database.
+• Months 3–6: Pilot. Deployment at one CII organisation (for example a telecom or power-sector partner) in passive monitoring mode, with site calibration and analyst feedback loops.
+• Months 6–12: Multi-zone rollout. Independent nodes per sensitivity zone, one-way threat-indicator sharing between zones, a multi-node permissioned ledger, and alignment with the NCIIPC protected-system audit process.
+• Months 12–24: Sectoral and national scale. Federation across organisations in a sector, integration with sectoral CERTs and CERT-In reporting, and support for industrial control protocols (Modbus, DNP3) to extend coverage into operational-technology networks.
+
+4.7 Cost-Benefit Analysis
+
+Costs (indicative, per deployment node):
+• Software licensing: ₹0. The entire stack is open-source.
+• Hardware: one commodity server, with no GPU required. Typically a few lakh rupees, often covered by existing server capacity.
+• Cloud and data transfer: ₹0. The system is fully offline.
+• Operations: periodic retraining on CPU (around 20 minutes per run), which fits within existing SOC staffing.
+
+Benefits:
+• IBM's 2026 India findings show breaches cost ₹31.6 crore on average without AI and automation, against ₹21.3 crore with extensive AI and automation: a difference of about ₹10.3 crore per breach. Preventing or shortening even one breach over a system's lifetime returns its deployment cost many times over.
+• Cutting false alarms by 78% frees a substantial share of analyst time for genuine threats.
+• Tamper-evident, explainable incident records reduce the effort of regulatory reporting and forensic investigation.
+• Sovereign, open-source ownership eliminates recurring foreign licence fees and vendor lock-in, and keeps sensitive telemetry inside national infrastructure.
+
+4.8 Precedents for This Approach
+
+KAVACH builds on approaches with established track records:
+• Joint-Embedding Predictive Architectures: introduced by Meta AI (I-JEPA, V-JEPA), these showed that predicting in latent space produces robust world representations. NetJEPA adapts this to network telemetry.
+• World models: DreamerV3 (Hafner et al.) demonstrated that agents which learn and "imagine" environment dynamics can master diverse tasks, validating forward simulation as a planning tool.
+• Behavioural network AI: commercial self-learning network detection products are deployed across thousands of organisations worldwide, proving that behavioural modelling of networks works in production. KAVACH adds forecasting, deep explainability and sovereign offline deployment.
+• MITRE ATT&CK: the de facto global standard for describing adversary behaviour, used by SOCs, CERTs and governments.
+• Permissioned blockchains for audit: Hyperledger Fabric and similar platforms are in production use for tamper-evident record-keeping in government and finance.
+
+4.9 Conclusion
+
+KAVACH meets every requirement of the problem statement:
+• it ingests flow-level and packet-level telemetry;
+• it represents network state as graphs;
+• it learns probabilistic state-transition dynamics;
+• it forecasts attacker progression K steps ahead;
+• it maps behaviour to MITRE ATT&CK stages;
+• it explains every prediction;
+• it runs fully offline;
+• it beats the logistic-regression baseline by a wide, measured margin.
+
+It then goes further, with a blockchain trust layer and security that scales with network sensitivity, built for the realities of India's Critical Information Infrastructure. With a working prototype, honest benchmarks and a clear path to national deployment, KAVACH is ready to move India's cyber defence from reacting to attacks to anticipating them.
+
+Made in India, for India.

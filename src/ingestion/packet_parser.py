@@ -18,7 +18,12 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Iterator
 
-from scapy.all import IP, TCP, UDP, PcapReader
+try:  # scapy is only the fallback path now (see iter_packets)
+    from scapy.all import IP, TCP, UDP, PcapReader
+except ImportError:  # pragma: no cover
+    IP = TCP = UDP = PcapReader = None
+
+from src.ingestion import fastpcap
 
 # Port-scan heuristic: a single source IP touching this many distinct
 # (dst_ip, dst_port) pairs within PORT_SCAN_WINDOW_SECONDS looks like a scan.
@@ -119,10 +124,7 @@ def first_packet_timestamp(path: str) -> float:
     a MachineLearningCVE CSV's synthesized timestamps to this capture's
     real start time, when the matching raw PCAP is available.
     """
-    with PcapReader(path) as reader:
-        for pkt in reader:
-            return float(pkt.time)
-    raise ValueError(f"No packets found in {path!r}")
+    return fastpcap.first_timestamp(path)
 
 
 def iter_packets(path: str, batch_size: int = 5_000, max_packets: int | None = None) -> Iterator[list[dict]]:
@@ -130,9 +132,25 @@ def iter_packets(path: str, batch_size: int = 5_000, max_packets: int | None = N
     records at a time, so the orchestrator can emit a stage:ingestion
     progress event per batch instead of waiting for the whole file.
 
+    Uses the fast struct-based reader (src/ingestion/fastpcap.py, ~150k
+    packets/s); falls back to scapy for link types it doesn't handle.
+
     `max_packets` bounds how much of a (potentially 10+ GB) capture gets
     read — pass None to process the whole file.
     """
+    try:
+        batch: list[dict] = []
+        for rec in fastpcap.iter_packet_records(path, max_packets=max_packets):
+            batch.append(rec)
+            if len(batch) >= batch_size:
+                yield batch
+                batch = []
+        if batch:
+            yield batch
+        return
+    except ValueError:
+        if PcapReader is None:
+            raise
     flow_states: dict = defaultdict(_FlowState)
     scan_states: dict = defaultdict(_ScanState)
     batch: list[dict] = []

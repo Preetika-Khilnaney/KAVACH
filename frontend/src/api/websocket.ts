@@ -368,3 +368,33 @@ export function deriveTransitionFromEvents(events: PipelineEvent[], maxHosts = 5
 
   return { steps, attackStage, confidence, trained, topFeatures, hasExplainability: !!latestExplain };
 }
+
+export interface AttentionFeature {
+  feature: string;
+  attribution: number;
+}
+
+/** Every real canonical feature's Captum attribution for the latest
+ * window -- not literal graph-attention weights. PyG's HGTConv (the
+ * spatial encoder NetJEPA actually uses) doesn't expose per-edge
+ * attention through a public return value the way GATConv does, so
+ * there's no real graph-attention matrix to show. What IS real: full
+ * IntegratedGradients attribution across all 23 canonical features (see
+ * src/orchestrator/pipeline.py, which now asks explain_prediction for
+ * every feature instead of just the top 5 -- free, since n_features was
+ * always just a post-hoc slice of an already-fully-computed vector). */
+export function deriveAttentionFromEvents(events: PipelineEvent[]) {
+  const latestExplain = [...events].reverse().find((e) => e.stage === 'explainability');
+  const latestMapping = [...events].reverse().find((e) => e.stage === 'attack_mapping');
+
+  const features = (latestExplain?.payload?.top_features ?? []) as AttentionFeature[];
+  const sorted = [...features].sort((a, b) => Math.abs(b.attribution) - Math.abs(a.attribution));
+
+  return {
+    features: sorted,
+    trained: latestExplain?.payload?.trained ?? false,
+    hasExplainability: !!latestExplain,
+    riskPct: Math.round((latestMapping?.payload?.infiltration_probability ?? 0) * 100),
+    attackStage: latestMapping?.payload?.attack_stage ?? null,
+  };
+}

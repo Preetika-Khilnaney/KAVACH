@@ -12,6 +12,10 @@ data:
 windowing:
   window_seconds: 5
   stride_seconds: 5
+  # CSV (flow) captures are windowed by row count in the live pipeline, the
+  # same way src/training/build_windows_cache.py builds the training set, so
+  # live windows match the model's training distribution. null = time windows.
+  csv_rows_per_window: 100
 
 features:
   flow_level:
@@ -47,3 +51,26 @@ model:
 api:
   host: "0.0.0.0"
   port: 8000
+
+# Forensic ledger (src/storage/blockchain_ledger.py) + smart contracts
+# (src/blockchain/contracts.py). node_id must be unique per KAVACH site so
+# air-gapped sync bundles can be attributed.
+blockchain:
+  node_id: "kavach-node-1"
+  low_risk_threshold: 0.3      # below: batched 100-per-block with a Merkle root
+  high_risk_threshold: 0.7     # above: full block + ALERT block
+  critical_threshold: 0.9      # above + late kill-chain stage: critical tier
+  low_risk_batch_size: 100
+  contracts:
+    consensus_min_nodes: 3           # independent nodes that must agree
+    consensus_min_confidence: 0.8
+    consensus_min_probability: 0.85
+    consensus_window_hours: 24
+    escalation_progression_minutes: 10   # Recon -> Initial Access within
+    escalation_ack_minutes: 5            # ...and no analyst ack within
+    rollback_eval_predictions: 100       # judge a new model on its next N reviewed alerts
+    rollback_fpr_multiplier: 2.0
+  feedback_audit:
+    volume_multiplier: 3.0     # analyst dismissing 3x their usual rate
+    min_actions: 5
+    high_confidence_dismissal: 0.9

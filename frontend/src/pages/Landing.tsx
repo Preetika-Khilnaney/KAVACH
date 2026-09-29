@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Shield, Zap, Eye, HardDrive, Users, CheckCircle, TrendingUp, Clock, Target, Activity } from 'lucide-react';
+import { ArrowRight, ChevronDown, Zap, Eye, HardDrive, Users, CheckCircle, TrendingUp, Clock, Target, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { KillChainStepper } from '../components/KillChainStepper';
 import { ProvenanceDrawer } from '../components/ProvenanceDrawer';
@@ -36,14 +36,10 @@ const DEMO_GREEN_EVENTS = [
   },
 ];
 
-function GreenDemoLine({ title, description, stage, delay, duration }: { title: string; description: string; stage: string; delay: number; duration: number }) {
+function GreenDemoLine({ title, description, stage }: { title: string; description: string; stage: string }) {
   const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -16, height: 0 }}
-      animate={{ opacity: 1, x: 0, height: 'auto' }}
-      transition={{ duration, delay, ease: [0.22, 1, 0.36, 1] }}
-    >
+    <div>
       <div className="flex items-start gap-3 px-3 py-2 border-l-2 border-l-risk-green rounded-r-md bg-surface hover:bg-canvas transition-colors duration-200">
         <span className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 bg-risk-green" aria-hidden="true" />
         <div className="flex-1 min-w-0">
@@ -62,7 +58,7 @@ function GreenDemoLine({ title, description, stage, delay, duration }: { title: 
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -101,7 +97,7 @@ function LiveActivityPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border-default bg-canvas shrink-0">
         <div className="flex items-center gap-2">
-          <Shield size={16} className="text-accent-indigo" aria-hidden="true" />
+          <img src="/KAVACH_logo.png" alt="" className="w-5 h-5 object-contain" />
           <span className="font-heading font-semibold text-xs text-text-primary">Kavach</span>
           <span
             className={clsx(
@@ -148,52 +144,43 @@ function LiveActivityPanel() {
             </p>
           </div>
         ) : (
-          recent.flatMap((alert, idx) => {
-            const slot = idx * 2.1;
-            const items = [
-              <MonoLogLine
-                key={alert.id}
-                timestamp={alert.timestamp}
-                severity={alert.severity}
-                message={alert.title}
-                flowId={alert.flowId}
-                animate
-                delay={slot}
-                duration={7}
+          (() => {
+            // Real alerts interleaved with the illustrative green entries, then
+            // revealed top-to-bottom: each row fades/slides in shortly after the
+            // one above it. Rows animate once, on mount -- polling re-renders
+            // don't replay the entrance.
+            const seen = new Set<string>();
+            const rows: { key: string; node: React.ReactNode }[] = [];
+            recent.forEach((alert, idx) => {
+              if (seen.has(alert.id)) return;
+              seen.add(alert.id);
+              rows.push({
+                key: `alert-${alert.id}`,
+                node: (
+                  <MonoLogLine timestamp={alert.timestamp} severity={alert.severity} message={alert.title} flowId={alert.flowId}>
+                    <div className="mt-1 space-y-1">
+                      <p className="text-[11px] text-text-secondary leading-snug line-clamp-2">{alert.description}</p>
+                      <span className={clsx('inline-block px-1.5 py-0.5 rounded text-[9px] font-mono border', SEVERITY_BADGE[alert.severity])}>
+                        {alert.killChainStage}
+                      </span>
+                    </div>
+                  </MonoLogLine>
+                ),
+              });
+              const demo = DEMO_GREEN_EVENTS[idx];
+              if (demo) rows.push({ key: demo.id, node: <GreenDemoLine title={demo.title} description={demo.description} stage={demo.stage} /> });
+            });
+            return rows.map((row, i) => (
+              <motion.div
+                key={row.key}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.25 + i * 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className="mt-1 space-y-1">
-                  <p className="text-[11px] text-text-secondary leading-snug line-clamp-2">
-                    {alert.description}
-                  </p>
-                  <span
-                    className={clsx(
-                      'inline-block px-1.5 py-0.5 rounded text-[9px] font-mono border',
-                      SEVERITY_BADGE[alert.severity],
-                    )}
-                  >
-                    {alert.killChainStage}
-                  </span>
-                </div>
-              </MonoLogLine>,
-            ];
-            // Interleave the illustrative green entries for visual variety --
-            // the real alerts feed only ever contains flagged (non-benign)
-            // windows, so there's no real "verified safe" event to show here.
-            const demo = DEMO_GREEN_EVENTS[idx];
-            if (demo) {
-              items.push(
-                <GreenDemoLine
-                  key={demo.id}
-                  title={demo.title}
-                  description={demo.description}
-                  stage={demo.stage}
-                  delay={slot + 1.05}
-                  duration={7}
-                />,
-              );
-            }
-            return items;
-          })
+                {row.node}
+              </motion.div>
+            ));
+          })()
         )}
       </div>
 

@@ -19,7 +19,7 @@ from src.ingestion import flow_parser
 
 CSV_DIR = Path("data/raw/CSV/MachineLearningCVE")
 PCAP_DIR = Path("data/raw/PCAP")
-OUT_DIR = Path("data/processed/windows")
+OUT_DIR = Path("data/processed/windows_v2")  # v2: adds bidirectional ratios + modality flags
 
 # Row-count windowing, not time windowing (see extract.py's docstring on
 # `rows_per_window`): flow_parser's synthesized timestamp inflates wildly
@@ -29,9 +29,14 @@ ROWS_PER_WINDOW = 100
 
 
 def main():
+    import sys
+
+    only = sys.argv[1] if len(sys.argv) > 1 else None
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for csv_path in sorted(CSV_DIR.glob("*.csv")):
+        if only and only.lower() not in csv_path.name.lower():
+            continue
         out_path = OUT_DIR / f"{csv_path.stem}.pkl"
         if out_path.exists():
             print(f"skip {csv_path.name} (cached)")

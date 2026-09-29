@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Shield } from 'lucide-react';
 import { ProvenanceDrawer } from './ProvenanceDrawer';
 import { AccessibilityPanel } from './AccessibilityPanel';
 import { LoginButton } from './LoginButton';
@@ -20,9 +19,7 @@ export function LandingHeader() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Logo & Project Title */}
           <NavLink to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity" data-interactive>
-            <div className="w-9 h-9 rounded-xl bg-accent-indigo flex items-center justify-center text-white shadow-glow-indigo">
-              <Shield className="w-5 h-5" />
-            </div>
+            <img src="/KAVACH_logo.png" alt="" className="w-10 h-10 object-contain" />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-heading font-bold text-base tracking-tight text-text-primary">

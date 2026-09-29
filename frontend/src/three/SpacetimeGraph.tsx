@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -131,6 +131,9 @@ interface GraphContentsProps extends SpacetimeGraphProps {
 }
 
 function GraphContents({ nodes, edges, nodePositions, gridSize, gridSegments }: GraphContentsProps) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
   // Real, not fabricated: how many edges actually touch each node --
   // drives node size so hub hosts visibly stand out from quiet ones.
   const degreeById = useMemo(() => {
@@ -141,6 +144,18 @@ function GraphContents({ nodes, edges, nodePositions, gridSize, gridSegments }: 
       d.set(e.target, (d.get(e.target) ?? 0) + 1);
     }
     return d;
+  }, [nodes, edges]);
+
+  // Real per-node peer list -- who this node actually exchanged traffic
+  // with, from the real edge list, for the hover detail card.
+  const peersById = useMemo(() => {
+    const p = new Map<string, Set<string>>();
+    for (const n of nodes) p.set(n.id, new Set());
+    for (const e of edges) {
+      p.get(e.source)?.add(e.target);
+      p.get(e.target)?.add(e.source);
+    }
+    return p;
   }, [nodes, edges]);
 
   const wellPositions = useMemo(
@@ -176,20 +191,39 @@ function GraphContents({ nodes, edges, nodePositions, gridSize, gridSegments }: 
             new THREE.Vector3(0, -pos.y, 0),
           ]);
 
+          const isHovered = hoveredId === node.id;
+          const riskLabel = node.riskContribution < 0.25 ? 'Low' : node.riskContribution < 0.5 ? 'Elevated' : 'High';
+          const peerNames = Array.from(peersById.get(node.id) ?? [])
+            .map((id) => nodeById.get(id))
+            .filter((n): n is NetworkNode => !!n)
+            .map((n) => (n.type === 'gateway' ? 'Aggregate' : n.hostname));
+
           return (
             <group key={node.id} position={pos}>
               {/* soft halo -- normal (not additive) blending so it reads
                   against a light background instead of washing out white */}
-              <mesh scale={1.7}>
+              <mesh scale={isHovered ? 2.2 : 1.7}>
                 <sphereGeometry args={[radius, 16, 16]} />
-                <meshBasicMaterial color={color} transparent opacity={0.28} depthWrite={false} />
+                <meshBasicMaterial color={color} transparent opacity={isHovered ? 0.4 : 0.28} depthWrite={false} />
               </mesh>
-              <mesh>
+              <mesh
+                scale={isHovered ? 1.15 : 1}
+                onPointerOver={(e) => {
+                  e.stopPropagation();
+                  setHoveredId(node.id);
+                  document.body.style.cursor = 'pointer';
+                }}
+                onPointerOut={(e) => {
+                  e.stopPropagation();
+                  setHoveredId((h) => (h === node.id ? null : h));
+                  document.body.style.cursor = 'auto';
+                }}
+              >
                 <sphereGeometry args={[radius, 32, 32]} />
                 <meshStandardMaterial
                   color={color}
                   emissive={color}
-                  emissiveIntensity={isNetwork ? 0.5 : 0.3}
+                  emissiveIntensity={isHovered ? 0.85 : isNetwork ? 0.5 : 0.3}
                   roughness={0.25}
                   metalness={0.55}
                 />
@@ -211,6 +245,70 @@ function GraphContents({ nodes, edges, nodePositions, gridSize, gridSegments }: 
                   {!isNetwork && <span className="text-text-tertiary"> · {degree} conn</span>}
                 </div>
               </Html>
+
+              {/* Hover detail card -- everything real we know about this
+                  node: identity, real risk reading, real connection
+                  count, and who it actually talked to. */}
+              {isHovered && (
+                <Html
+                  position={[0, radius + 1.15, 0]}
+                  center
+                  distanceFactor={9}
+                  style={{ pointerEvents: 'none' }}
+                  zIndexRange={[1000, 0]}
+                >
+                  <div
+                    className="w-56 rounded-xl border bg-white shadow-xl p-3 text-left"
+                    style={{ borderColor: color }}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="font-heading font-semibold text-xs text-text-primary truncate">
+                        {isNetwork ? 'Capture Aggregate' : node.hostname}
+                      </span>
+                      <span
+                        className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono border"
+                        style={{ borderColor: color, color }}
+                      >
+                        {isNetwork ? 'NETWORK' : 'HOST'}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-[10px] font-mono text-text-secondary">
+                      {!isNetwork && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-text-tertiary">IP</span>
+                          <span className="text-text-primary">{node.ip}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-2">
+                        <span className="text-text-tertiary">Risk</span>
+                        <span style={{ color }} className="font-semibold">
+                          {Math.round(node.riskContribution * 100)}% ({riskLabel})
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-text-tertiary">Connections</span>
+                        <span className="text-text-primary">{degree}</span>
+                      </div>
+                      {isNetwork && (
+                        <div className="flex justify-between gap-2">
+                          <span className="text-text-tertiary">Total graph</span>
+                          <span className="text-text-primary">{nodes.length} nodes / {edges.length} edges</span>
+                        </div>
+                      )}
+                    </div>
+                    {peerNames.length > 0 && (
+                      <div className="mt-1.5 pt-1.5 border-t border-border-default">
+                        <div className="text-[9px] text-text-tertiary uppercase tracking-wide mb-0.5">
+                          Talks to
+                        </div>
+                        <div className="text-[10px] font-mono text-text-primary leading-snug line-clamp-3">
+                          {peerNames.join(', ')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </Html>
+              )}
             </group>
           );
         })}

@@ -1,99 +1,168 @@
-"""Explainability: per-feature attribution for a NetJEPA-derived
-prediction (an infiltration score or an attack-stage class), tied back to
-the window's own named feature vector
-(src.graph.state_builder.CANONICAL_FEATURE_NAMES) — this is what the
-architecture doc's "why flagged" panel and attention heatmap need: real
-feature names, not "feature_0, feature_1, ...".
+"""Explainability: per-feature attribution for a NetJEPA-derived prediction,
+tied back to the window's named feature vector
+(src.graph.state_builder.CANONICAL_FEATURE_NAMES).
 
-Rewritten from a teammate's branch (pulled in from an unrelated git
-history): the original attributed against `batch["network"].x` inside a
-model with a built-in classification head. This project's NetJEPA
-(src/models/netjepa.py) deliberately doesn't bake a classification head in
-— scoring is a separate downstream stage (src/scoring/), per the
-architecture doc's stage separation — so this explains
-encoder -> predictor -> scoring_head as one differentiable chain, with
-whatever scoring head (InfiltrationHead, ATTACKStageClassifier) the caller
-passes in.
+Two methods, and every result is tagged with which one produced it:
 
-Uses Captum's IntegratedGradients when available, falling back to
-gradient x input saliency (no extra install) otherwise — same fallback
-shape as before.
+* "integrated_gradients" -- Captum IntegratedGradients w.r.t. the window's
+  feature vector, relative to a benign reference window (see
+  causal_tracing.benign_reference_vector), through the *real* inference path (HeteroData graph ->
+  HGT -> GRU -> BatchNorm -> head; see src/explainability/model_forward.py),
+  explaining the infiltration head's pre-sigmoid logit. Used for windows
+  that look interesting (the pipeline's threshold) because it costs a few
+  dozen forward passes.
+* "heuristic" (roadmap Task 8.4) -- a fast, backward-pass-free fallback for
+  every other window: z-score of each feature against a running baseline of
+  previously seen windows, weighted by the feature's magnitude. Cheap enough
+  to run on every window, so no window ends up with an empty explanation.
+
+Falls back to gradient x input when Captum isn't installed.
 """
 
 from __future__ import annotations
+
+import math
+import threading
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-from src.graph.state_builder import CANONICAL_FEATURE_NAMES
+from src.graph.state_builder import CANONICAL_FEATURE_NAMES, build_graph_state
+
+
+def _finite(v: float) -> float:
+    return float(v) if math.isfinite(float(v)) else 0.0
 
 
 def explain_prediction(
     model,
     scoring_head: nn.Module,
-    feature_vector,
+    feature_vector=None,
     feature_names: list[str] | None = None,
     target_index: int = 0,
     n_features: int = 10,
+    state: dict | None = None,
+    window: dict | None = None,
+    n_steps: int = 24,
+    baseline=None,
+    history: list | None = None,
 ) -> list[dict]:
-    """Compute per-feature attribution scores for one window's prediction.
+    """Per-feature attribution scores for one window's prediction.
 
-    Parameters
-    ----------
-    model         : NetJEPA (src.models.netjepa.NetJEPA)
-    scoring_head  : a downstream head — InfiltrationHead or
-                    ATTACKStageClassifier (src.scoring) — mapping the
-                    model's context embedding to a score/logits vector.
-    feature_vector: the window's numeric feature vector (list[float] or
-                    1-D tensor), e.g. state_builder.build_graph_state(window)["feature_vector"].
-    feature_names : names matching feature_vector, in order. Defaults to
-                    CANONICAL_FEATURE_NAMES when the length matches.
-    target_index  : which output element to explain (the class index for
-                    ATTACKStageClassifier; 0 for InfiltrationHead's single
-                    score).
-    n_features    : how many top features to return.
+    Pass `window` (a feature-window dict) or `state` (its build_graph_state
+    output) so attribution runs through the window's real graph; a bare
+    `feature_vector` is wrapped in a host-less graph. `scoring_head` is an
+    InfiltrationHead (explained on its logit) or ATTACKStageClassifier
+    (`target_index` = stage class).
 
-    Returns
-    -------
-    list of {"feature": str, "attribution": float}, sorted by |attribution|
-    descending, longest n_features.
+    Returns [{"feature", "attribution", "value", "method"}] sorted by
+    |attribution|, at most n_features long.
     """
+    from src.explainability.model_forward import context_embeddings, infil_logit
+    from src.scoring.infiltration import InfiltrationHead
+
     model.eval()
     scoring_head.eval()
+    if state is None:
+        if window is not None:
+            state = build_graph_state(window)
+        elif len(feature_vector) == len(CANONICAL_FEATURE_NAMES):
+            state = build_graph_state(dict(zip(CANONICAL_FEATURE_NAMES, [float(v) for v in feature_vector])))
+        else:  # non-canonical width (custom models/tests): host-less graph
+            from src.graph.state_builder import HAS_PYG, _to_hetero_data
 
-    x = torch.as_tensor(feature_vector, dtype=torch.float32).clone().detach().requires_grad_(True)
-
-    if feature_names is None:
-        feature_names = list(CANONICAL_FEATURE_NAMES) if len(x) == len(CANONICAL_FEATURE_NAMES) else [f"feature_{i}" for i in range(len(x))]
+            fv = [float(v) for v in feature_vector]
+            state = {"feature_vector": fv, "feature_names": feature_names}
+            if HAS_PYG:
+                state["graph"] = _to_hetero_data(fv, [], [], {})
+    x = torch.tensor(state["feature_vector"], dtype=torch.float32)
+    feature_names = feature_names or list(state.get("feature_names") or CANONICAL_FEATURE_NAMES)
+    is_infil = isinstance(scoring_head, InfiltrationHead)
 
     def forward_fn(x_input: torch.Tensor) -> torch.Tensor:
-        # one "network"-only window per row in x_input's batch. Goes
-        # through model(...) (not model.context_encoder(...) directly) so
-        # it includes context_norm -- model.eval() above means that's
-        # running-stats BatchNorm, safe regardless of this batch's size
-        # (Captum may call this with more than one interpolated row).
-        context_batches = [[{"network": row.unsqueeze(0)}] for row in x_input]
-        _, _, z_context = model(context_batches)
-        return scoring_head(z_context)
+        z = context_embeddings(model, x_input, state, history=history)
+        if is_infil:
+            return infil_logit(scoring_head, z).unsqueeze(-1)
+        return scoring_head(z)
 
+    if baseline is None:
+        # Attribute relative to typical benign traffic, not to an all-zeros
+        # vector: several canonical features are constant in the training
+        # data (e.g. flow_count = 100 rows per window), and a zero baseline
+        # would hand them large, meaningless attributions.
+        from src.explainability.causal_tracing import benign_reference_vector
+
+        base = benign_reference_vector(len(x))
+    else:
+        base = torch.as_tensor(baseline, dtype=torch.float32)
+    method = "integrated_gradients"
     try:
         from captum.attr import IntegratedGradients
 
         ig = IntegratedGradients(forward_fn)
-        attrs = ig.attribute(x.unsqueeze(0), target=target_index)
-        attrs = attrs.squeeze(0).detach().cpu().numpy()
-    except Exception:
-        out = forward_fn(x.unsqueeze(0)).flatten()
-        score = out[target_index]
-        score.backward()
-        attrs = (x.grad * x).detach().cpu().numpy() if x.grad is not None else np.zeros(len(feature_names))
+        attrs = ig.attribute(x.unsqueeze(0), baselines=base.unsqueeze(0), target=0 if is_infil else target_index, n_steps=n_steps)
+        attrs = attrs.squeeze(0).detach().numpy()
+    except ImportError:
+        method = "gradient_x_input"
+        xg = x.clone().requires_grad_(True)
+        out = forward_fn(xg.unsqueeze(0)).flatten()
+        out[0 if is_infil else target_index].backward()
+        attrs = (xg.grad * (xg - base)).detach().numpy() if xg.grad is not None else np.zeros(len(x))
 
     ranked = sorted(
-        (
-            {"feature": feature_names[i] if i < len(feature_names) else f"feature_{i}", "attribution": float(attrs[i])}
-            for i in range(len(attrs))
-        ),
+        ({"feature": feature_names[i] if i < len(feature_names) else f"feature_{i}", "attribution": _finite(attrs[i]),
+          "value": _finite(x[i].item()), "method": method} for i in range(len(attrs))),
+        key=lambda d: abs(d["attribution"]),
+        reverse=True,
+    )
+    return ranked[:n_features]
+
+
+class RunningBaseline:
+    """Welford running mean/variance over every window's feature vector the
+    process has seen -- the reference point for heuristic attribution."""
+
+    def __init__(self, dim: int):
+        self.n = 0
+        self.mean = np.zeros(dim)
+        self.m2 = np.zeros(dim)
+        self._lock = threading.Lock()
+
+    def update(self, x: np.ndarray) -> None:
+        with self._lock:
+            self.n += 1
+            delta = x - self.mean
+            self.mean += delta / self.n
+            self.m2 += delta * (x - self.mean)
+
+    def std(self) -> np.ndarray:
+        if self.n < 2:
+            return np.ones_like(self.mean)
+        return np.sqrt(self.m2 / (self.n - 1))
+
+
+_BASELINE = RunningBaseline(len(CANONICAL_FEATURE_NAMES))
+
+
+def heuristic_attribution(feature_vector, feature_names: list[str] | None = None, n_features: int = 10,
+                          baseline: RunningBaseline | None = None, update: bool = True) -> list[dict]:
+    """Fast attribution (Task 8.4): importance_i = z_i * |x_i| where z_i is
+    the feature's deviation from the running baseline. Signed: positive
+    means the feature sits above its usual level (pushes risk up)."""
+    baseline = baseline or _BASELINE
+    x = np.nan_to_num(np.asarray(feature_vector, dtype=float))
+    names = feature_names or list(CANONICAL_FEATURE_NAMES)
+    if baseline.n >= 2:
+        z = (x - baseline.mean) / np.maximum(baseline.std(), 1e-6)
+    else:
+        z = x  # windows are already z-scored per capture by src.features.extract
+    importance = z * np.maximum(np.abs(x), 1.0)
+    if update:
+        baseline.update(x)
+    ranked = sorted(
+        ({"feature": names[i], "attribution": _finite(importance[i]), "value": _finite(x[i]), "z_score": _finite(z[i]), "method": "heuristic"}
+         for i in range(len(x))),
         key=lambda d: abs(d["attribution"]),
         reverse=True,
     )

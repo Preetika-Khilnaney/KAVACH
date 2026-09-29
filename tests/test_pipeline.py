@@ -85,10 +85,10 @@ def test_run_pipeline_caps_windows_processed_through_model_stages(tmp_path):
     rows = "\n".join([f"{80+i},6000000,1,1,10,10,BENIGN" for i in range(5)])
     csv_path.write_text(CSV_HEADER + "\n" + rows + "\n")
 
-    uncapped = _drain(run_pipeline(capture_path=str(csv_path), max_windows=None))
+    uncapped = _drain(run_pipeline(capture_path=str(csv_path), max_windows=None, csv_rows_per_window=None))
     assert len([e for e in uncapped if e["stage"] == "feature_extraction"]) == 5  # sanity: 5 distinct windows exist
 
-    events = _drain(run_pipeline(capture_path=str(csv_path), max_windows=1))
+    events = _drain(run_pipeline(capture_path=str(csv_path), max_windows=1, csv_rows_per_window=None))
     fe_events = [e for e in events if e["stage"] == "feature_extraction"]
     sr_events = [e for e in events if e["stage"] == "state_representation"]
 

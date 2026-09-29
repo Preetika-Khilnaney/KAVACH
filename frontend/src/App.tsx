@@ -10,9 +10,12 @@ import { Flows } from './pages/Flows';
 import { InternalsPipeline } from './pages/InternalsPipeline';
 import { InternalsNetwork } from './pages/InternalsNetwork';
 import { InternalsForecast } from './pages/InternalsForecast';
+import { InternalsAttention } from './pages/InternalsAttention';
 import { Benchmark } from './pages/Benchmark';
+import { Forensics } from './pages/Forensics';
 import { AccessibilityProvider } from './contexts/AccessibilityContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { IngestionProvider } from './contexts/IngestionContext';
 
 function AppShell() {
   const location = useLocation();
@@ -39,7 +42,9 @@ function AppShell() {
           <Route path="/internals/pipeline" element={<InternalsPipeline />} />
           <Route path="/internals/network" element={<InternalsNetwork />} />
           <Route path="/internals/forecast" element={<InternalsForecast />} />
+          <Route path="/internals/attention" element={<InternalsAttention />} />
           <Route path="/benchmark" element={<Benchmark />} />
+          <Route path="/forensics" element={<Forensics />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -53,7 +58,7 @@ function AppShell() {
             <span>AI World Model Intrusion Forecasting System</span>
           </div>
           <div className="font-mono text-[11px] text-text-tertiary">
-            Built on NetJEPA Architecture · Explainability-First
+            Built on NetJEPA Architecture · Explainability-First · Hash-Chained Evidence
           </div>
         </div>
       </footer>
@@ -65,9 +70,11 @@ export function App() {
   return (
     <AccessibilityProvider>
       <AuthProvider>
-        <Router>
-          <AppShell />
-        </Router>
+        <IngestionProvider>
+          <Router>
+            <AppShell />
+          </Router>
+        </IngestionProvider>
       </AuthProvider>
     </AccessibilityProvider>
   );

@@ -23,6 +23,17 @@ import type {
   AuditTrail,
   RiskScoreResponse,
   JobProgress,
+  FeedbackStats,
+  ChainPage,
+  ChainVerification,
+  ChainStats,
+  ContractsOverview,
+  FeedbackAudit,
+  TrainingDataVerification,
+  AttackChain,
+  ExplainResponse,
+  BenchmarkReport,
+  EvidenceCheck,
 } from './types';
 
 // ── Generic Query Hook ───────────────────────────────────────────────────────
@@ -150,9 +161,12 @@ export function useRiskScore() {
   return useApiQuery<RiskScoreResponse>(() => api.getRiskScore());
 }
 
-export function useTimeline() {
-  return useApiQuery<TimelinePoint[]>(() => api.getInfiltrationTimeline());
+export function useTimeline(limit = 200, source?: string) {
+  return useApiQuery<TimelinePoint[]>(() => api.getInfiltrationTimeline(limit, source), [limit, source]);
 }
+
+/** Alias matching the roadmap's naming. */
+export const useInfiltrationTimeline = useTimeline;
 
 export function useFlows(filters?: FlowFilter) {
   return useApiQuery<Flow[]>(() => api.getFlows(filters), [JSON.stringify(filters)]);
@@ -193,7 +207,55 @@ export function useProvenance() {
 }
 
 export function useAuditTrail(flowId: string) {
-  return useApiQuery<AuditTrail>(() => api.getAuditTrail(flowId), [flowId]);
+  return useApiQuery<AuditTrail | null>(() => (flowId ? api.getAuditTrail(flowId) : Promise.resolve(null)), [flowId]);
+}
+
+export function useBenchmarkReport() {
+  return useApiQuery<BenchmarkReport>(() => api.getBenchmarkReport());
+}
+
+export function useFeedbackStats(refreshKey: unknown = 0) {
+  return useApiQuery<FeedbackStats>(() => api.getFeedbackStats(), [refreshKey]);
+}
+
+export function useFeedbackAudit(refreshKey: unknown = 0) {
+  return useApiQuery<FeedbackAudit>(() => api.getFeedbackAudit(), [refreshKey]);
+}
+
+export function useChain(limit = 50, blockType?: string, refreshKey: unknown = 0) {
+  return useApiQuery<ChainPage>(() => api.getChain(limit, blockType), [limit, blockType, refreshKey]);
+}
+
+export function useChainVerification(refreshKey: unknown = 0) {
+  return useApiQuery<ChainVerification>(() => api.verifyChain(), [refreshKey]);
+}
+
+export function useChainStats(refreshKey: unknown = 0) {
+  return useApiQuery<ChainStats>(() => api.getChainStats(), [refreshKey]);
+}
+
+export function useContracts(refreshKey: unknown = 0) {
+  return useApiQuery<ContractsOverview>(() => api.getContracts(), [refreshKey]);
+}
+
+export function useTrainingDataVerification() {
+  return useApiQuery<TrainingDataVerification>(() => api.getTrainingDataVerification());
+}
+
+export function useAttackChain(windowId: string | null) {
+  return useApiQuery<AttackChain | null>(() => (windowId ? api.getAttackChain(windowId) : Promise.resolve(null)), [windowId]);
+}
+
+export function useExplanation(windowId: string | null, methods?: string) {
+  return useApiQuery<ExplainResponse | null>(() => (windowId ? api.getExplanation(windowId, methods) : Promise.resolve(null)), [windowId, methods]);
+}
+
+export function useEvidence(windowId: string | null) {
+  return useApiQuery<EvidenceCheck | null>(() => (windowId ? api.getEvidence(windowId) : Promise.resolve(null)), [windowId]);
+}
+
+export function useFlowNeighbors(windowId: string | null) {
+  return useApiQuery(() => (windowId ? api.getFlowNeighbors(windowId) : Promise.resolve([])), [windowId]);
 }
 
 export function useJobProgress(jobId: string | null, pollMs = 1000) {

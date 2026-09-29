@@ -4,7 +4,7 @@ import { AlertCircle, Inbox, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import { SkeletonRect } from './Skeleton';
 
-export type DataState = 'loading' | 'empty' | 'live' | 'replay' | 'error';
+export type DataState = 'loading' | 'empty' | 'live' | 'replay' | 'stored' | 'error';
 
 interface DataStateWrapperProps {
   state: DataState;
@@ -132,7 +132,7 @@ export function DataStateWrapper({
           </motion.div>
         )}
 
-        {(state === 'live' || state === 'replay') && (
+        {(state === 'live' || state === 'replay' || state === 'stored') && (
           <motion.div
             key="data"
             initial={{ opacity: 0 }}

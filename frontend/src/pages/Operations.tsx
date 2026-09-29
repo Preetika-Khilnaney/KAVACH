@@ -1,51 +1,44 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { useAlerts, useAuditTrail } from '../api/hooks';
+import { useAlerts, useAuditTrail, useRiskScore, useKillChain, useTimeline, useFeedbackStats } from '../api/hooks';
+import { MitreMatrixGrid } from '../components/MitreMatrixGrid';
+import { BlockchainAuditTrail } from '../components/BlockchainAuditTrail';
+import { Link } from 'react-router-dom';
 import { RiskGauge } from '../components/RiskGauge';
 import { KillChainStepper } from '../components/KillChainStepper';
 import { MonoLogLine } from '../components/MonoLogLine';
 import { FeedbackControls } from '../components/FeedbackControls';
 import { DecisionAuditTrail } from '../components/DecisionAuditTrail';
+import { AccessTierPanel } from '../components/AccessTierPanel';
 import { DataStateWrapper } from '../components/DataStateWrapper';
 import { SkeletonChart } from '../components/Skeleton';
-import { ShieldAlert, Activity, FileSearch, Sparkles, X } from 'lucide-react';
-
-const OPERATIONS_FORECAST = {
-  score: 93,
-  trend: 'up' as const,
-  delta: 8,
-  activeStage: 'Command and Control',
-  explanation: "Most recent window scored 93% infiltration probability, mapped to 'Command and Control' at 99% confidence.",
-};
-
-const OPERATIONS_KILL_CHAIN = [
-  { name: 'Benign', probability: 0.01, isActive: false, isPredicted: false, isComplete: true },
-  { name: 'Reconnaissance', probability: 0.08, isActive: false, isPredicted: false, isComplete: true },
-  { name: 'Initial Access', probability: 0.24, isActive: false, isPredicted: false, isComplete: true },
-  { name: 'Lateral Movement', probability: 0.62, isActive: false, isPredicted: false, isComplete: true },
-  { name: 'Command and Control', probability: 0.99, isActive: true, isPredicted: false, isComplete: false },
-  { name: 'Exfiltration', probability: 0.15, isActive: false, isPredicted: true, isComplete: false },
-];
-
-const OPERATIONS_TIMELINE = [
-  61, 64, 62, 68, 70, 73, 76, 74, 81, 84, 88, 86, 91, 93,
-].map((riskScore, index, values) => ({
-  timestamp: new Date(Date.now() - (values.length - index - 1) * 5 * 60_000).toISOString(),
-  riskScore,
-  confidence: { low: Math.max(0, riskScore - 8), high: Math.min(100, riskScore + 5) },
-}));
+import { ShieldAlert, Activity, FileSearch, Sparkles, X, Grid3x3, Link2 } from 'lucide-react';
 
 export function Operations() {
   const { data: alertsData, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useAlerts();
+  const { data: riskData, loading: riskLoading } = useRiskScore();
+  const { data: killChainData } = useKillChain();
+  const { data: timelinePoints } = useTimeline(200);
+  const [feedbackKey, setFeedbackKey] = useState(0);
+  const { data: fbStats } = useFeedbackStats(feedbackKey);
 
   // Audit trail modal state
   const [selectedFlowForAudit, setSelectedFlowForAudit] = useState<string | null>(null);
   const { data: auditTrail } = useAuditTrail(selectedFlowForAudit || '');
 
-  // Calculate feedback counts
-  const confirmedCount = 0;
-  const fpCount = 0;
-  const pendingCount = 100;
+  // Persisted analyst verdicts (GET /feedback/stats) -- every verdict is also
+  // chained as an ANALYST_ACTION block on the forensic ledger.
+  const confirmedCount = fbStats?.confirmed ?? 0;
+  const fpCount = fbStats?.false_positive ?? 0;
+  const pendingCount = fbStats?.pending ?? alertsData?.length ?? 0;
+
+  // Real timeline (GET /timeline): every processed window's risk score in
+  // processing order. The band is degenerate on purpose -- no per-window
+  // uncertainty interval is computed, so none is drawn.
+  const timelineData = useMemo(
+    () => (timelinePoints ?? []).map(p => ({ timestamp: p.timestamp, riskScore: p.riskScore, stage: p.attackStage, method: p.scoringMethod })),
+    [timelinePoints],
+  );
 
   return (
     <div className="space-y-6">
@@ -77,6 +70,9 @@ export function Operations() {
         </div>
       </div>
 
+      {/* Classification tier + two-person approval queue */}
+      <AccessTierPanel />
+
       {/* Hero Grid: Risk Gauge (Left) + MITRE Kill Chain (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Overall Forecast Risk Gauge */}
@@ -94,13 +90,21 @@ export function Operations() {
           </div>
 
           <div className="my-auto py-4">
-            <RiskGauge
-              score={OPERATIONS_FORECAST.score}
-              trend={OPERATIONS_FORECAST.trend}
-              delta={OPERATIONS_FORECAST.delta}
-              activeStage={OPERATIONS_FORECAST.activeStage}
-              explanation={OPERATIONS_FORECAST.explanation}
-            />
+            {riskLoading ? (
+              <div className="h-40 flex items-center justify-center text-xs text-text-secondary">Loading…</div>
+            ) : riskData ? (
+              <RiskGauge
+                score={riskData.score}
+                trend={riskData.trend}
+                delta={riskData.delta}
+                activeStage={riskData.activeStage}
+                explanation={riskData.explanation}
+              />
+            ) : (
+              <div className="h-40 flex items-center justify-center text-center text-xs text-text-secondary px-4">
+                No windows processed yet — upload a capture on the Ingestion page.
+              </div>
+            )}
           </div>
         </div>
 
@@ -124,51 +128,66 @@ export function Operations() {
           </div>
 
           <div className="py-3">
-            <KillChainStepper
-              stages={OPERATIONS_KILL_CHAIN}
-              variant="5-stage"
-              orientation="horizontal"
-              showProbability={true}
-            />
+            {killChainData && killChainData.length > 0 ? (
+              <KillChainStepper
+                stages={killChainData}
+                variant="5-stage"
+                orientation="horizontal"
+                showProbability={true}
+              />
+            ) : (
+              <p className="text-xs text-text-secondary text-center py-6">No windows processed yet.</p>
+            )}
           </div>
 
-          <div className="mt-4 pt-3 border-t border-border-default flex items-center justify-between text-xs text-text-secondary">
-            <span>Current Forecast: <strong className="text-accent-indigo font-heading">Command and Control (99% prob)</strong></span>
-            <span className="font-mono text-[11px] text-text-tertiary">K-Step Horizon: t+4</span>
-          </div>
+          {killChainData && (() => {
+            const active = killChainData.find((s) => s.isActive);
+            return active ? (
+              <div className="mt-4 pt-3 border-t border-border-default flex items-center justify-between text-xs text-text-secondary">
+                <span>Current Forecast: <strong className="text-accent-indigo font-heading">{active.name} ({Math.round(active.probability * 100)}% prob)</strong></span>
+              </div>
+            ) : null;
+          })()}
         </div>
       </div>
 
-      {/* Middle Section: Infiltration Probability Rolling Timeline */}
+      {/* MITRE ATT&CK coverage matrix (Task 3.5) */}
+      {killChainData && killChainData.length > 0 && (
+        <div className="bg-surface border border-border-default rounded-xl p-6 shadow-card">
+          <div className="flex items-center gap-2 mb-1">
+            <Grid3x3 size={16} className="text-accent-indigo" />
+            <h3 className="font-heading font-semibold text-sm text-text-primary">MITRE ATT&CK Technique Coverage</h3>
+          </div>
+          <p className="text-xs text-text-secondary mb-4">Techniques detected in processed traffic, and techniques the NetJEPA rollout forecasts next.</p>
+          <MitreMatrixGrid stages={killChainData} />
+        </div>
+      )}
+
+      {/* Middle Section: Infiltration Probability Timeline */}
       <div className="bg-surface border border-border-default rounded-xl p-6 shadow-card">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
             <h3 className="font-heading font-semibold text-sm text-text-primary">
-              Infiltration Probability Timeline (Rolling 60-Minute Window)
+              Infiltration Probability Timeline
             </h3>
             <p className="text-xs text-text-secondary mt-0.5">
-              Shaded band denotes 80% confidence interval under NetJEPA uncertainty estimation.
+              Calibrated infiltration risk for every processed window, in scoring order (GET /timeline). No uncertainty band is drawn — none is computed per window.
             </p>
           </div>
-          <div className="flex items-center gap-4 text-xs font-mono">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-0.5 bg-accent-indigo" />
-              <span className="text-text-secondary">Risk Point Estimate</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-2 bg-accent-indigo/15 rounded-xs" />
-              <span className="text-text-secondary">80% CI Range</span>
-            </div>
+          <div className="flex items-center gap-1.5 text-xs font-mono">
+            <span className="w-3 h-0.5 bg-accent-indigo" />
+            <span className="text-text-secondary">Risk Score</span>
           </div>
         </div>
 
         <DataStateWrapper
-          state="live"
+          state={timelineData.length === 0 ? 'empty' : 'live'}
+          emptyMessage="No windows processed yet — upload a capture on the Ingestion page."
           skeleton={<SkeletonChart />}
         >
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={OPERATIONS_TIMELINE} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={timelineData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.3} />
@@ -196,9 +215,7 @@ export function Operations() {
                         <div className="bg-surface p-3 rounded-lg border border-border-default shadow-card text-xs font-mono space-y-1">
                           <div className="text-text-tertiary">{new Date(d.timestamp).toLocaleTimeString()}</div>
                           <div className="font-bold text-accent-indigo">Risk Score: {d.riskScore}</div>
-                          <div className="text-text-secondary text-[11px]">
-                            80% CI: [{d.confidence.low} - {d.confidence.high}]
-                          </div>
+                          {d.stage && <div className="text-text-secondary">{d.stage}{d.method === 'packet_heuristic' ? ' · heuristic' : ''}</div>}
                         </div>
                       );
                     }
@@ -207,14 +224,6 @@ export function Operations() {
                 />
                 <ReferenceLine y={50} stroke="#D97706" strokeDasharray="3 3" opacity={0.5} label={{ value: 'Elevated Threshold', fill: '#D97706', fontSize: 10 }} />
                 <ReferenceLine y={75} stroke="#DC2626" strokeDasharray="3 3" opacity={0.5} label={{ value: 'Critical Threshold', fill: '#DC2626', fontSize: 10 }} />
-                {/* Confidence Area */}
-                <Area
-                  type="monotone"
-                  dataKey="confidence.high"
-                  stroke="none"
-                  fill="#4F46E5"
-                  fillOpacity={0.12}
-                />
                 <Area
                   type="monotone"
                   dataKey="riskScore"
@@ -285,7 +294,10 @@ export function Operations() {
                     targetType="alert"
                     targetId={alert.id}
                     currentVerdict={alert.analystVerdict}
-                    onVerdictChange={() => refetchAlerts()}
+                    onVerdictChange={() => {
+                      refetchAlerts();
+                      setFeedbackKey(k => k + 1);
+                    }}
                     compact={true}
                   />
                 </div>
@@ -293,6 +305,18 @@ export function Operations() {
             ))}
           </div>
         </DataStateWrapper>
+      </div>
+
+      {/* Forensic ledger status */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link2 size={16} className="text-accent-indigo" />
+            <h3 className="font-heading font-semibold text-sm text-text-primary">Tamper-Evident Evidence Ledger</h3>
+          </div>
+          <Link to="/forensics" className="text-xs text-accent-indigo hover:underline">Open Forensics →</Link>
+        </div>
+        <BlockchainAuditTrail compact limit={12} />
       </div>
 
       {/* Decision Audit Trail Modal / Drawer */}

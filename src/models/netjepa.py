@@ -8,17 +8,6 @@ graph shape: src.graph.state_builder produces "network"/"host" node types
 shape the original assumed, and a fixed-width canonical feature vector
 (state_builder.CANONICAL_FEATURE_NAMES) instead of a raw per-flow matrix.
 
-BatchNorm on the encoder output (see NetJEPA.__init__) is load-bearing,
-not decorative: an early real training run on this project's data
-collapsed to a constant embedding within ~20 steps regardless of VICReg's
-variance/covariance loss weight (tried up to 2x the default) — a
-well-documented BYOL/SimSiam failure mode where the unbounded invariance
-term finds "make everything identical" cheaper than the capped variance
-penalty can counteract, especially early in training. Verified empirically
-(see src/training/train.py's history / the training write-up) that
-BatchNorm fixes it structurally: embed_std climbed from ~0.001 to ~0.9
-over 150 steps with it, vs. collapsing to ~0.002 without it, same
-hyperparameters otherwise. Don't remove it without re-verifying that.
 
 Falls back to a plain MLP over the "network" node's feature vector when
 torch-geometric isn't installed — the same shape a network-only window
@@ -36,7 +25,9 @@ import torch.nn as nn
 from src.graph.state_builder import EDGE_TYPES, HAS_PYG, NODE_TYPES
 
 if HAS_PYG:
+    from torch_geometric.data import Batch
     from torch_geometric.nn import HGTConv
+    from torch_geometric.utils import scatter
 
 
 class SpatialEncoder(nn.Module):
@@ -66,6 +57,18 @@ class SpatialEncoder(nn.Module):
         pooled = torch.stack([v.mean(dim=0) for v in h.values() if v.numel()]).mean(dim=0)
         return self.out(pooled)
 
+    def forward_batch(self, graphs: list) -> torch.Tensor:
+        """Encode many HeteroData graphs in ONE HGT call (PyG batching),
+        then pool per graph exactly as forward() does (mean over each node
+        type's nodes, then mean over node types). (G, hidden_dim)."""
+        batch = Batch.from_data_list(graphs)
+        h = {k: torch.relu(self.proj[k](v)) for k, v in batch.x_dict.items()}
+        h = self.conv1(h, batch.edge_index_dict)
+        h = {k: torch.relu(v) for k, v in h.items()}
+        h = self.conv2(h, batch.edge_index_dict)
+        per_type = [scatter(v, batch[k].batch, dim=0, dim_size=batch.num_graphs, reduce="mean") for k, v in h.items()]
+        return self.out(torch.stack(per_type).mean(dim=0))
+
 
 class TemporalEncoder(nn.Module):
     """GRU over a sequence of per-window spatial embeddings.
@@ -83,10 +86,18 @@ class TemporalEncoder(nn.Module):
 
 
 class Predictor(nn.Module):
-    """K-step latent rollout — feed each prediction back in as the next
-    context, same shape as the pre-existing skeleton this replaces."""
+    """Latent transition model p(z_{t+1} | z_t).
 
-    def __init__(self, embedding_dim: int, hidden_dim: int):
+    v2 is probabilistic: a diagonal Gaussian with mean `net(z)` and
+    log-variance `logvar_head(h)` (h = the last hidden layer), trained with
+    Gaussian negative log-likelihood against the target encoder's z_{t+1}.
+    forward() returns the mean, so deterministic callers are unchanged;
+    distribution() returns (mean, logvar); sample_rollout() draws whole
+    K-step trajectories for Monte-Carlo probabilities of progression.
+    Checkpoints from v1 (no logvar head) load with probabilistic=False.
+    """
+
+    def __init__(self, embedding_dim: int, hidden_dim: int, probabilistic: bool = True):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(embedding_dim, hidden_dim),
@@ -95,17 +106,40 @@ class Predictor(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, embedding_dim),
         )
+        self.probabilistic = probabilistic
+        if probabilistic:
+            self.logvar_head = nn.Linear(hidden_dim, embedding_dim)
 
     def forward(self, z: torch.Tensor) -> torch.Tensor:
         return self.net(z)
 
+    def distribution(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        h = self.net[:4](z)
+        mean = self.net[4](h)
+        if not self.probabilistic:
+            return mean, torch.zeros_like(mean)
+        return mean, self.logvar_head(h).clamp(-8.0, 4.0)
+
     @torch.no_grad()
     def rollout(self, z: torch.Tensor, steps: int) -> list[torch.Tensor]:
+        """Mean trajectory."""
         cur, predictions = z, []
         for _ in range(steps):
             cur = self.forward(cur)
             predictions.append(cur)
         return predictions
+
+    @torch.no_grad()
+    def sample_rollout(self, z: torch.Tensor, steps: int, n_samples: int = 64, generator: torch.Generator | None = None) -> torch.Tensor:
+        """(n_samples, steps, D) sampled trajectories from p(z_{t+1} | z_t)."""
+        cur = z.unsqueeze(0).expand(n_samples, -1) if z.dim() == 1 else z
+        out = []
+        for _ in range(steps):
+            mean, logvar = self.distribution(cur)
+            eps = torch.randn(mean.shape, generator=generator, device=mean.device)
+            cur = mean + eps * (0.5 * logvar).exp()
+            out.append(cur)
+        return torch.stack(out, dim=1)
 
 
 def _x_dict_and_edges(graph_batch) -> tuple[dict, dict | None]:
@@ -149,6 +183,32 @@ class _SpatioTemporalEncoder(nn.Module):
         spatial_embeds = torch.stack([self.spatial(*_x_dict_and_edges(w)) for w in window_sequence])
         return self.temporal(spatial_embeds)
 
+    def forward_batch(self, sequences: list[list]) -> torch.Tensor:
+        """Many window sequences at once: one batched HGT call over every
+        graph, then the GRU over each sequence (grouped by length).
+        (N, hidden_dim). Falls back to per-sequence forward() for
+        non-HeteroData inputs."""
+        # per-window path when explainability hooks are attached (they expect
+        # one spatial call per window) -- see explainability/model_forward.py
+        if not getattr(self, "batched", True) or not HAS_PYG or not all(hasattr(g, "x_dict") for seq in sequences for g in seq):
+            return torch.stack([self.forward(seq) for seq in sequences])
+        flat = [g for seq in sequences for g in seq]
+        emb = self.spatial.forward_batch(flat)
+        out = [None] * len(sequences)
+        offsets, pos = [], 0
+        for seq in sequences:
+            offsets.append(pos)
+            pos += len(seq)
+        by_len: dict[int, list[int]] = {}
+        for i, seq in enumerate(sequences):
+            by_len.setdefault(len(seq), []).append(i)
+        for L, idxs in by_len.items():
+            x = torch.stack([emb[offsets[i] : offsets[i] + L] for i in idxs])  # (n, L, D)
+            _, h = self.temporal.gru(x)
+            for j, i in enumerate(idxs):
+                out[i] = h[-1][j]
+        return torch.stack(out)
+
 
 class NetJEPA(nn.Module):
     """Wraps the context encoder, EMA target encoder, predictor, and the
@@ -176,13 +236,14 @@ class NetJEPA(nn.Module):
         predictor_hidden_dim: int = 256,
         heads: int = 4,
         gru_layers: int = 2,
+        probabilistic: bool = True,
     ):
         super().__init__()
         self.context_encoder = _SpatioTemporalEncoder(feature_dim, embedding_dim, heads, gru_layers)
         self.target_encoder = copy.deepcopy(self.context_encoder)
         for p in self.target_encoder.parameters():
             p.requires_grad = False
-        self.predictor = Predictor(embedding_dim, predictor_hidden_dim)
+        self.predictor = Predictor(embedding_dim, predictor_hidden_dim, probabilistic=probabilistic)
         # affine=False: pure normalization, no learnable scale/shift that
         # could re-introduce collapse (e.g. a scale trained toward 0).
         self.context_norm = nn.BatchNorm1d(embedding_dim, affine=False)
@@ -193,11 +254,11 @@ class NetJEPA(nn.Module):
         every example itself a list of >=1 graph batches (a window
         sequence, oldest first). Returns (z_pred, z_target, z_context),
         each (N, embedding_dim)."""
-        z_context = self.context_norm(torch.stack([self.context_encoder(seq) for seq in context_batches]))
+        z_context = self.context_norm(self.context_encoder.forward_batch(context_batches))
         z_target = None
         if target_batches is not None:
             with torch.no_grad():
-                z_target = self.target_norm(torch.stack([self.target_encoder(seq) for seq in target_batches]))
+                z_target = self.target_norm(self.target_encoder.forward_batch(target_batches))
         z_pred = self.predictor(z_context)
         return z_pred, z_target, z_context
 

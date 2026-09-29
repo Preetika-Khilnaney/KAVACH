@@ -21,6 +21,8 @@ export function Flows() {
   const [selectedFlow, setSelectedFlow] = useState<Flow | null>(null);
 
   const { data: flows, loading, error, refetch } = useFlows();
+  // Real rows only -- no decorative ports/flags/bytes (CSV windows carry none).
+  const displayFlows = useMemo(() => flows || [], [flows]);
 
   // If URL has flowId, select it once data loads
   useMemo(() => {
@@ -32,8 +34,8 @@ export function Flows() {
 
   // Filtering & Sorting
   const filteredFlows = useMemo(() => {
-    if (!flows) return [];
-    return flows
+    if (!displayFlows.length) return [];
+    return displayFlows
       .filter(f => {
         if (protocolFilter !== 'ALL' && f.protocol !== protocolFilter) return false;
         if (riskFilter !== 'ALL' && f.riskLevel !== riskFilter) return false;
@@ -42,8 +44,10 @@ export function Flows() {
           const matches =
             f.srcIP.includes(q) ||
             f.dstIP.includes(q) ||
-            f.flags.toLowerCase().includes(q) ||
-            f.protocol.toLowerCase().includes(q);
+            f.id.toLowerCase().includes(q) ||
+            (f.sourceFile ?? '').toLowerCase().includes(q) ||
+            (f.attackStage ?? '').toLowerCase().includes(q) ||
+            (f.hostIPs ?? []).some(ip => ip.includes(q));
           if (!matches) return false;
         }
         return true;
@@ -57,7 +61,7 @@ export function Flows() {
         }
         return String(valA).localeCompare(String(valB)) * multiplier;
       });
-  }, [flows, protocolFilter, riskFilter, searchTerm, sortBy, sortDir]);
+  }, [displayFlows, protocolFilter, riskFilter, searchTerm, sortBy, sortDir]);
 
   const handleSort = (field: keyof Flow) => {
     if (sortBy === field) {
@@ -74,10 +78,10 @@ export function Flows() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-heading font-bold text-text-primary tracking-tight">
-            Network Flow Explorer
+            Processed Prediction Windows
           </h1>
           <p className="text-xs text-text-secondary mt-0.5">
-            Sortable packet telemetry telemetry stream with NetJEPA intrusion risk indicators and latent feature maps.
+            Stored feature windows from the ingestion pipeline with NetJEPA risk predictions and explainability data.
           </p>
         </div>
 
@@ -101,7 +105,7 @@ export function Flows() {
             type="text"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search by IP, port, flags, protocol..."
+            placeholder="Search by IP, capture, window id, stage..."
             className="w-full pl-9 pr-3 py-1.5 bg-canvas border border-border-default rounded-lg text-xs font-mono text-text-primary focus:outline-none focus:border-accent-indigo"
           />
         </div>
@@ -141,15 +145,15 @@ export function Flows() {
         </div>
 
         <span className="font-mono text-xs text-text-tertiary">
-          Showing {filteredFlows.length} flows
+          Showing {filteredFlows.length} windows
         </span>
       </div>
 
       {/* Flows Table */}
       <div className="bg-surface border border-border-default rounded-xl shadow-card overflow-hidden">
         <DataStateWrapper
-          state={loading ? 'loading' : error ? 'error' : filteredFlows.length === 0 ? 'empty' : 'live'}
-          emptyMessage="No flows match your filter criteria."
+          state={loading ? 'loading' : error ? 'error' : filteredFlows.length === 0 ? 'empty' : 'stored'}
+          emptyMessage="No processed windows match your filter criteria."
           skeleton={
             <div className="divide-y divide-border-default">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -171,28 +175,12 @@ export function Flows() {
                       <ArrowUpDown size={11} />
                     </div>
                   </th>
-                  <th className="py-3 px-4">Source Socket</th>
-                  <th className="py-3 px-4">Destination Socket</th>
-                  <th className="py-3 px-4">Protocol</th>
-                  <th className="py-3 px-4">Flags</th>
-                  <th
-                    className="py-3 px-4 cursor-pointer hover:text-text-primary"
-                    onClick={() => handleSort('bytes')}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Bytes</span>
-                      <ArrowUpDown size={11} />
-                    </div>
-                  </th>
-                  <th
-                    className="py-3 px-4 cursor-pointer hover:text-text-primary"
-                    onClick={() => handleSort('duration')}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span>Duration</span>
-                      <ArrowUpDown size={11} />
-                    </div>
-                  </th>
+                  <th className="py-3 px-4">Source Host</th>
+                  <th className="py-3 px-4">Destination Host</th>
+                  <th className="py-3 px-4">Capture</th>
+                  <th className="py-3 px-4">MITRE Stage</th>
+                  <th className="py-3 px-4">Scoring</th>
+                  <th className="py-3 px-4">Records</th>
                   <th
                     className="py-3 px-4 cursor-pointer hover:text-text-primary"
                     onClick={() => handleSort('riskScore')}
@@ -220,24 +208,25 @@ export function Flows() {
                       {new Date(flow.timestamp).toLocaleTimeString()}
                     </td>
                     <td className="py-3 px-4 font-mono text-text-primary whitespace-nowrap">
-                      {flow.srcIP}:{flow.srcPort}
+                      {flow.srcIP}
                     </td>
                     <td className="py-3 px-4 font-mono text-text-primary whitespace-nowrap">
-                      {flow.dstIP}:{flow.dstPort}
+                      {flow.dstIP}
                     </td>
-                    <td className="py-3 px-4 font-mono whitespace-nowrap">
+                    <td className="py-3 px-4 font-mono text-text-secondary whitespace-nowrap max-w-[180px] truncate" title={flow.sourceFile ?? ''}>
+                      {flow.sourceFile ?? '—'}
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <span className="px-1.5 py-0.5 rounded bg-canvas border border-border-default text-text-secondary font-medium">
-                        {flow.protocol}
+                        {flow.attackStage ?? '—'}
                       </span>
+                      {flow.analystVerdict && <span className="ml-1 text-[10px] font-mono text-accent-teal">{flow.analystVerdict}</span>}
                     </td>
                     <td className="py-3 px-4 font-mono text-text-secondary whitespace-nowrap">
-                      {flow.flags}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-text-primary whitespace-nowrap">
-                      {flow.bytes.toLocaleString()}
+                      {flow.scoringMethod === 'netjepa' ? 'NetJEPA (calibrated)' : flow.scoringMethod === 'packet_heuristic' ? 'packet heuristic' : 'legacy'}
                     </td>
                     <td className="py-3 px-4 font-mono text-text-secondary whitespace-nowrap">
-                      {flow.duration}s
+                      {flow.flowCount ? `${flow.flowCount} flows` : flow.packetCount ? `${flow.packetCount} pkts` : '—'}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       <RiskBadge level={flow.riskLevel} score={flow.riskScore} size="sm" />
@@ -250,7 +239,7 @@ export function Flows() {
                           setSelectedFlow(flow);
                         }}
                         className="p-1.5 rounded-md text-accent-indigo hover:bg-accent-indigo-subtle transition-colors"
-                        title="View Flow Detail & SHAP Attribution"
+                        title="View Window Detail & SHAP Attribution"
                       >
                         <Eye size={14} />
                       </button>

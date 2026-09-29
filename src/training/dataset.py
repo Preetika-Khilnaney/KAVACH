@@ -14,7 +14,7 @@ from __future__ import annotations
 import pickle
 from pathlib import Path
 
-WINDOWS_DIR = Path("data/processed/windows")
+WINDOWS_DIR = Path("data/processed/windows_v2") if Path("data/processed/windows_v2").exists() else Path("data/processed/windows")
 
 
 def load_all_windows(windows_dir: Path = WINDOWS_DIR) -> dict[str, list[dict]]:

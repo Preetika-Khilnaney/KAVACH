@@ -90,6 +90,19 @@ def _window_flow_records(flow_df: pd.DataFrame | None, window_seconds: int, rows
         out["flow_iat_var_mean"] = g["iat_var"].mean()
     if "iat_max" in df.columns:
         out["flow_iat_max_max"] = g["iat_max"].max()
+    # bidirectional flow ratios (backward = responder -> initiator)
+    if {"fwd_bytes", "bwd_bytes"} <= set(df.columns):
+        fb, bb = g["fwd_bytes"].sum(), g["bwd_bytes"].sum()
+        out["flow_bwd_fwd_byte_ratio"] = (bb / fb.where(fb > 0)).fillna(0.0)
+    if {"fwd_packets", "bwd_packets"} <= set(df.columns):
+        fp, bp = g["fwd_packets"].sum(), g["bwd_packets"].sum()
+        out["flow_bwd_fwd_packet_ratio"] = (bp / fp.where(fp > 0)).fillna(0.0)
+    if "protocol" in df.columns and df["protocol"].notna().any():
+        proto = df["protocol"].astype(str).str.upper()
+        out["flow_tcp_fraction"] = (proto == "TCP").groupby(df["window_start"]).mean()
+        out["flow_udp_fraction"] = (proto == "UDP").groupby(df["window_start"]).mean()
+    out["has_flow_level"] = 1.0
+
     if "label" in df.columns:
         out["flow_attack_ratio"] = g["label"].agg(lambda s: float((s.astype(str) != "BENIGN").mean()))
         out["flow_dominant_label"] = g["label"].agg(lambda s: s.mode().iat[0] if not s.mode().empty else None)
@@ -144,6 +157,7 @@ def _window_packet_records(packet_records, window_seconds: int) -> pd.DataFrame:
             for window_start, group in g
         }
         out["packet_edges"] = pd.Series(edges_by_window)
+    out["has_packet_level"] = 1.0
 
     return out.reset_index()
 
@@ -200,12 +214,20 @@ def build_feature_windows(
     combined["window_end"] = combined["window_start"] + (1 if rows_per_window is not None else window_seconds)
     combined["window_id"] = combined["window_start"].astype("int64").astype(str)
 
-    count_cols = [c for c in ("flow_count", "packet_count") if c in combined.columns]
-    for c in count_cols:
-        combined[c] = combined[c].fillna(0).astype("int64")
+    for flag in ("has_flow_level", "has_packet_level"):
+        combined[flag] = combined[flag].fillna(0.0) if flag in combined.columns else 0.0
+    count_cols = [c for c in ("flow_count", "packet_count", "has_flow_level", "has_packet_level",
+                              "flow_tcp_fraction", "flow_udp_fraction") if c in combined.columns]
+    for c in ("flow_count", "packet_count"):
+        if c in combined.columns:
+            combined[c] = combined[c].fillna(0).astype("int64")
 
     if normalize:
-        combined = _normalize_numeric_columns(combined, skip={"window_start", "window_end", "window_id", *count_cols})
+        # flow_attack_ratio is a LABEL source (src/training/labels.py), never a
+        # feature: z-scoring it turned "ratio > 0" into "above this file's
+        # average", silently mislabelling ~half the attack windows on
+        # Tuesday/Wednesday in the v1 cache.
+        combined = _normalize_numeric_columns(combined, skip={"window_start", "window_end", "window_id", "flow_attack_ratio", *count_cols})
 
     front = [c for c in ("window_id", "window_start", "window_end", *count_cols) if c in combined.columns]
     rest = [c for c in combined.columns if c not in front]

@@ -32,12 +32,44 @@ STAGE_MAP = {
     "Web Attack � Sql Injection": "Initial Access",
     "Infiltration": "Lateral Movement",
     "Bot": "Command and Control",
+    # PCAP timeline labels (src/training/attack_timeline.py)
+    "Heartbleed": "Initial Access",  # T1190 exploit of a public-facing service
+    # CSE-CIC-IDS-2018 spellings
+    "FTP-BruteForce": "Initial Access",
+    "SSH-Bruteforce": "Initial Access",
+    "Brute Force -Web": "Initial Access",
+    "Brute Force -XSS": "Initial Access",
+    "SQL Injection": "Initial Access",
+    "Infilteration": "Lateral Movement",
+    # CTU-13
+    "Botnet": "Command and Control",
 }
 
 
+def _norm(label: str) -> str:
+    """Encoding-proof label key: CIC-IDS-2017's web-attack labels contain a
+    stray 0x96 byte that decodes differently under utf-8 vs latin-1."""
+    import re
+
+    return re.sub(r"[^a-z0-9]+", " ", str(label).lower()).strip()
+
+
+_STAGE_BY_NORM = {_norm(k): v for k, v in STAGE_MAP.items()}
+
+
+def stage_for_label(label: str) -> str | None:
+    return _STAGE_BY_NORM.get(_norm(label))
+
+
 def infiltration_label(window: dict) -> float:
-    """1.0 if any row in the window was non-benign, else 0.0."""
-    return 1.0 if window.get("flow_attack_ratio", 0.0) > 0 else 0.0
+    """1.0 if any row in the window was non-benign, else 0.0.
+
+    Uses the labels actually present (robust), not flow_attack_ratio: the v1
+    windows cache z-scored that ratio, so "> 0" meant "above the file mean"."""
+    present = window.get("flow_labels_present")
+    if present is not None:
+        return 1.0 if any(l != "BENIGN" for l in present) else 0.0
+    return 1.0 if (window.get("flow_attack_ratio") or 0.0) > 0 else 0.0
 
 
 def stage_label(window: dict) -> int | None:
@@ -48,7 +80,7 @@ def stage_label(window: dict) -> int | None:
     if not non_benign:
         return STAGE_NAMES.index("Benign")
     for lbl in non_benign:
-        stage = STAGE_MAP.get(lbl)
+        stage = stage_for_label(lbl)
         if stage is not None:
             return STAGE_NAMES.index(stage)
     return None

@@ -16,7 +16,9 @@ def test_network_only_window_has_no_host_nodes():
     # fixed-width, canonical order -- not "whatever this window happened to have"
     assert graph["feature_names"] == list(state_builder.CANONICAL_FEATURE_NAMES)
     assert len(graph["feature_vector"]) == N
-    assert graph["feature_vector"][graph["feature_names"].index("flow_count")] == 3.0
+    # counts are log1p-scaled in the v2 schema (raw scales differ between CSV and PCAP windows)
+    import math
+    assert graph["feature_vector"][graph["feature_names"].index("flow_count")] == math.log1p(3)
     assert graph["feature_vector"][graph["feature_names"].index("flow_bytes_sum")] == 120.0
     # everything this window didn't have is 0.0, not dropped
     assert graph["feature_vector"][graph["feature_names"].index("packet_count")] == 0.0

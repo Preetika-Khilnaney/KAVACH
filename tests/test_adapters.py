@@ -32,7 +32,8 @@ def test_row_to_flow_maps_real_fields():
     # (sometimes negative) measurement, which it isn't. See adapters.py.
     assert flow["bytes"] == 0
     assert flow["duration"] == 0
-    assert flow["features"] == [{"name": "flow_bytes_sum", "value": 0.42, "contribution": 0.42}]
+    # contribution is normalised to 0-1 (the heatmap's contract); method tags IG vs heuristic
+    assert flow["features"] == [{"name": "flow_bytes_sum", "value": 0.42, "contribution": 1.0, "method": None}]
     assert flow["srcIP"] == "N/A"  # no host nodes in this row
 
 

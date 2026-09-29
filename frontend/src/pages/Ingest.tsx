@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UploadCloud, FileType, CheckCircle2, ArrowRight, ShieldCheck, PlayCircle, Radio } from 'lucide-react';
 import { uploadFile, getJobProgress } from '../api';
-import { usePipelineStream, deriveAccumulatedNetworkGraphFromEvents } from '../api/websocket';
+import { deriveAccumulatedNetworkGraphFromEvents } from '../api/websocket';
+import { useIngestion } from '../contexts/IngestionContext';
 import { SpacetimeGraph } from '../three/SpacetimeGraph';
 import { KillChainStepper } from '../components/KillChainStepper';
 import clsx from 'clsx';
@@ -20,18 +21,29 @@ const PIPELINE_INGEST_STAGES = [
 export function Ingest() {
   const navigate = useNavigate();
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progressPercent, setProgressPercent] = useState(0);
-  const [activeStageIdx, setActiveStageIdx] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
-  const [statusText, setStatusText] = useState('');
-  const [capturePath, setCapturePath] = useState<string | null>(null);
+  const {
+    selectedFile,
+    isProcessing,
+    progressPercent,
+    activeStageIdx,
+    isComplete,
+    statusText,
+    capturePath,
+    setSelectedFile,
+    setIsProcessing,
+    setProgressPercent,
+    setActiveStageIdx,
+    setIsComplete,
+    setStatusText,
+    setCapturePath,
+    graphEvents,
+    graphConnected,
+    graphReplaying,
+  } = useIngestion();
 
   // Real live graph state for the just-uploaded capture -- streams the
   // same src/graph/state_builder.py-built nodes/edges the backend sends
   // over /ws/pipeline as it actually processes this file window by window.
-  const { events: graphEvents, connected: graphConnected, replaying: graphReplaying } = usePipelineStream(capturePath);
   const graphData = useMemo(() => deriveAccumulatedNetworkGraphFromEvents(graphEvents), [graphEvents]);
 
   // Plain-language reading of the same real graph, for anyone who'd rather
@@ -330,7 +342,7 @@ export function Ingest() {
           </div>
           {graphSummary && (
             <p className="text-xs text-text-secondary bg-canvas border border-border-default rounded-lg px-3 py-2 leading-relaxed">
-              In plain terms: <strong className="text-text-primary">{graphSummary.hostCount} real host{graphSummary.hostCount === 1 ? '' : 's'}</strong> talked
+              <strong className="text-text-primary">{graphSummary.hostCount} host{graphSummary.hostCount === 1 ? '' : 's'}</strong> talked
               during this capture. The busiest was <strong className="text-text-primary font-mono">{graphSummary.busiestIp}</strong> with{' '}
               <strong className="text-text-primary">{graphSummary.busiestDegree} connection{graphSummary.busiestDegree === 1 ? '' : 's'}</strong>.
               Current model read: <strong className={clsx(graphSummary.riskPct >= 50 ? 'text-risk-red' : graphSummary.riskPct >= 25 ? 'text-risk-amber' : 'text-risk-green')}>
