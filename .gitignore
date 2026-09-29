@@ -3,6 +3,11 @@ __pycache__/
 *.pyc
 *.DS_Store
 train_retrain_full.log
+backend/data/raw/*
+!backend/data/raw/.gitkeep
+backend/data/processed/*
+!backend/data/processed/.gitkeep
+# Legacy root-level data paths are ignored after the backend move.
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
@@ -11,6 +16,7 @@ data/processed/*
 *.ckpt
 .env
 # tiered-auth secrets (password hashes, TOTP seeds, hardware-key files)
+backend/data/auth/
 data/auth/
 
 # local sync artefacts

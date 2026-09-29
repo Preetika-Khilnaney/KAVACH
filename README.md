@@ -7,6 +7,20 @@ Backend skeleton for the NetJEPA world-model pipeline (SIH 2026, problem stateme
 Matches the architecture from the technical approach slide: ingestion -> feature extraction ->
 graph state -> NetJEPA world model -> scoring/stage mapping -> explainability -> API/streaming.
 
+## Repository layout
+
+The project is split into two explicit applications:
+
+```text
+KAVACH/
+|-- backend/       Python API, model pipeline, training, tests, config, and data
+|-- frontend/      React + TypeScript + Vite dashboard
+|-- Images/        architecture diagrams and presentation assets
+|-- README.md      setup and operating instructions
+```
+
+Run backend commands from `backend/` and frontend commands from `frontend/`.
+
 ## What's implemented vs. stubbed
 
 **Implemented (runs as-is):**
@@ -104,7 +118,7 @@ graph state -> NetJEPA world model -> scoring/stage mapping -> explainability ->
 
 ## Datasets
 
-`data/raw/CSV/MachineLearningCVE/` (committed via Git LFS) has all 8 CSVs from the CIC-IDS-2017
+`backend/data/raw/CSV/MachineLearningCVE/` (committed via Git LFS) has all 8 CSVs from the CIC-IDS-2017
 "MachineLearningCVE" release — the full Monday-Friday capture week, pre-flowed with
 CICFlowMeter. Between them they already cover the full attack taxonomy the architecture doc's
 kill-chain mapping needs:
@@ -117,7 +131,7 @@ kill-chain mapping needs:
 | Thursday | Web Attack (Brute Force/XSS/SQLi), Infiltration |
 | Friday | Bot (C2), PortScan (recon), DDoS |
 
-`data/raw/PCAP/` holds the two raw captures (Monday = benign baseline, Wednesday = DoS/DDoS-heavy)
+`backend/data/raw/PCAP/` holds the two raw captures (Monday = benign baseline, Wednesday = DoS/DDoS-heavy)
 that back the packet-level ingestion path — too large for git, linked from here via Google Drive
 once uploaded:
 - Monday-WorkingHours.pcap — `<drive link>`
@@ -141,7 +155,8 @@ That's an enhancement, not a gap in the current build.
 | CSE-CIC-IDS-2018 | `Dst Port`, `Tot Fwd Pkts`, `TotLen Fwd Pkts`, `*_Flag_Cnt` | labels such as `DoS attacks-Hulk`, `Infilteration`, `Brute Force -Web` map onto the MITRE stages |
 | CTU-13 (`.binetflow`) | `StartTime,Dur,Proto,SrcAddr,...,Label` | Argus `State` letters become a TCP-flag bitmask; `flow=From-Botnet*` → `Botnet` (C2), everything else BENIGN |
 
-Drop any of these into `data/raw/CSV/...` (or upload them) and run `python -m src.training.build_windows_cache`.
+Drop any of these into `backend/data/raw/CSV/...` (or upload them) and run
+`python -m src.training.build_windows_cache` from `backend/`.
 
 ### Joint flow + packet windows from raw PCAP
 
@@ -190,8 +205,8 @@ git lfs version
 
 ```bash
 git lfs install
-git clone <repo-url> kavach-backend
-cd kavach-backend
+git clone https://github.com/Preetika-Khilnaney/KAVACH.git KAVACH
+cd KAVACH
 git lfs pull
 ```
 
@@ -199,17 +214,18 @@ The CIC-IDS-2017 flow CSVs are stored with Git LFS. Confirm that they are actual
 than small LFS pointer files:
 
 ```bash
-find data/raw/CSV/MachineLearningCVE -maxdepth 1 -type f -exec ls -lh {} \\\;
+find backend/data/raw/CSV/MachineLearningCVE -maxdepth 1 -type f -exec ls -lh {} \;
 ```
 
-Place any large PCAP files manually in `data/raw/PCAP/`; they are intentionally not committed.
+Place any large PCAP files manually in `backend/data/raw/PCAP/`; they are intentionally not committed.
 The expected captures and their purpose are documented in [Datasets](#datasets).
 
 ### 3. Create and verify the Python environment
 
-Run these commands from the repository root:
+Run these commands from `backend/`:
 
 ```bash
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
@@ -238,13 +254,13 @@ to `http://localhost:8000` and `ws://localhost:8000`.
 
 ### 5. Choose or create model weights
 
-Weights are git-ignored. Without `data/processed/netjepa_weights.pt`, the API still starts, but
+Weights are git-ignored. Without `backend/data/processed/netjepa_weights.pt`, the API still starts, but
 responses report `trained: false` and inference uses the untrained/rule-based fallback.
 
 **Use an existing checkpoint:** copy a compatible file to:
 
 ```text
-data/processed/netjepa_weights.pt
+backend/data/processed/netjepa_weights.pt
 ```
 
 The model registry hot-reloads a newer checkpoint while the API is running. Verify its metadata:
@@ -259,7 +275,7 @@ python -m src.cli info
 python -m src.training.build_windows_cache
 ```
 
-For joint flow and packet training, add PCAPs to `data/raw/PCAP/` and build packet windows:
+For joint flow and packet training, add PCAPs to `backend/data/raw/PCAP/` and build packet windows:
 
 ```bash
 python -m src.training.build_pcap_windows data/raw/PCAP/Monday-WorkingHours.pcap
@@ -273,12 +289,12 @@ python -m src.training.train_v2
 python -m src.training.train_v2 --sources csv
 ```
 
-The checkpoint is written to `data/processed/netjepa_weights.pt`. Training metrics are written to
-`data/processed/training_metrics.jsonl`; inspect them before treating predictions as production-quality.
+The checkpoint is written to `backend/data/processed/netjepa_weights.pt`. Training metrics are written to
+`backend/data/processed/training_metrics.jsonl`; inspect them before treating predictions as production-quality.
 
 ### 6. Start and verify the backend
 
-From the repository root, with `.venv` active:
+From `backend/`, with `.venv` active:
 
 ```bash
 uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
@@ -318,17 +334,18 @@ Open http://localhost:5173. For a production-like local preview, build first and
   `GET /jobs/{job_id}/progress`, and connect to
   `ws://localhost:8000/ws/pipeline?capture_path=<path>` for stage events.
 
-The first backend start creates local authentication state under `data/auth/`. It is git-ignored;
+The first backend start creates local authentication state under `backend/data/auth/`. It is git-ignored;
 do not commit generated passwords, TOTP secrets, or hardware-key files.
 
 ### 9. Run verification checks
 
-Run backend tests from the repository root and frontend checks from `frontend`:
+Run backend tests from `backend/` and frontend checks from `frontend/`:
 
 ```bash
+cd backend
 source .venv/bin/activate
 pytest
-cd frontend
+cd ../frontend
 npm run build
 npm run lint
 ```
@@ -336,7 +353,7 @@ npm run lint
 For a quick offline smoke test without the web UI:
 
 ```bash
-cd ..
+cd backend
 python -m src.cli info
 python -m src.cli predict data/raw/CSV/MachineLearningCVE/<file>.csv --limit 10
 ```
@@ -347,7 +364,7 @@ python -m src.cli predict data/raw/CSV/MachineLearningCVE/<file>.csv --limit 10
 |---|---|
 | `python` or `pip` uses the wrong interpreter | activate `.venv`, then use `python -m pip ...` and `python -m pytest` |
 | CSV upload fails or produces no windows | run `git lfs install && git lfs pull`; verify the files are not LFS pointers |
-| `trained` is `false` | add `data/processed/netjepa_weights.pt` or complete the training steps above |
+| `trained` is `false` | add `backend/data/processed/netjepa_weights.pt` or complete the training steps above |
 | `torch-geometric` installation fails | reinstall the PyTorch-compatible build, or continue with the documented plain-MLP fallback |
 | PyShark cannot find a capture backend | install Wireshark/tshark; use `build_pcap_windows` for the bundled fast parser |
 | Browser says `Backend unreachable` | start Uvicorn on port 8000 and check `curl http://localhost:8000/health` |
@@ -356,9 +373,10 @@ python -m src.cli predict data/raw/CSV/MachineLearningCVE/<file>.csv --limit 10
 
 ## Command line (offline)
 
-Everything runs without the web UI or any network access:
+Everything runs without the web UI or any network access. Run these commands from `backend/`:
 
 ```bash
+cd backend
 python -m src.cli info                                    # loaded checkpoint, schema, threshold, ledger status
 python -m src.cli predict capture.pcap --limit 20         # per-window risk, stage, t+1..t+K forecast band, top features
 python -m src.cli predict flows.csv --json > out.json     # machine-readable
@@ -374,6 +392,7 @@ The frontend bundles its fonts (`@fontsource/*`), so the UI also works on an air
 ## Run the API
 
 ```bash
+cd backend
 uvicorn src.api.main:app --reload
 ```
 
