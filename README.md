@@ -21,7 +21,7 @@ KAVACH/
 
 Run backend commands from `backend/` and frontend commands from `frontend/`.
 
-## What's implemented vs. stubbed
+## What's implemented
 
 **Implemented (runs as-is):**
 - `src/ingestion/flow_parser.py` — streams and normalizes the CIC-IDS-2017 "MachineLearningCVE"
